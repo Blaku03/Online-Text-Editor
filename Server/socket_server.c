@@ -24,7 +24,7 @@ void *connection_handler(void *socket_desc)
 		client_message[read_size] = '\0';
 
 		/* Send the message back to client */
-		// write(sock, client_message, strlen(client_message));
+		 write(sock, client_message, strlen(client_message));
 		printf("Client message: %s\n", client_message);
 
 		/* Clear the message buffer */
