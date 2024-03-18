@@ -11,8 +11,8 @@ namespace Editor.Views;
 public partial class MainWindow : Window
 {
     private Socket? _socket; // ! - null-forgiving operator
-    private readonly string _serverIp = "localhost";
-    private readonly int _serverPort = 5234;
+    private const string ServerIp = "localhost";
+    private const int ServerPort = 5234;
 
     public MainWindow()
     {
@@ -26,14 +26,12 @@ public partial class MainWindow : Window
         {
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream,
                 ProtocolType.Tcp);
-            await _socket.ConnectAsync(_serverIp, _serverPort);
-
-            var socketListener = new SocketListener();
+            await _socket.ConnectAsync(ServerIp, ServerPort);
 
             // What should realistically happening but is not in order to avoid warnings
             // Task.Run adds a new task to the thread pool
             // Task.Run(() => socketListener.ListenForMessages(_socket));
-            async void StartListening() => await socketListener.ListenForMessages(_socket);
+            async void StartListening() => await SocketListener.ListenForMessages(_socket);
             new Thread(StartListening).Start();
 
             await MessageBoxManager.GetMessageBoxStandard(
@@ -42,11 +40,11 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             await MessageBoxManager.GetMessageBoxStandard(
-                "Error", "Couldn't connect to server" + ex.Message).ShowWindowAsync();
+                "Error", "Couldn't connect to server\n" + ex.Message).ShowWindowAsync();
         }
     }
 
-    private async void DataSend_OnClick(object sender, RoutedEventArgs e)
+    private async void DataSend_OnClick(object sender, RoutedEventArgs routedEventArgs)
     {
         if (_socket == null)
         {
@@ -72,7 +70,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             await MessageBoxManager.GetMessageBoxStandard(
-                "Error", "Couldn't send message to server" + ex.Message).ShowWindowAsync();
+                "Error", "Couldn't send message to server\n" + ex.Message).ShowWindowAsync();
         }
     }
 }

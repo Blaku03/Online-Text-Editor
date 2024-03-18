@@ -4,14 +4,14 @@ using System.Threading.Tasks;
 
 namespace Editor;
 
-public class SocketListener
+public static class SocketListener
 {
-    public async Task ListenForMessages(Socket socketToListen)
+    public static async Task ListenForMessages(Socket socketToListen)
     {
         try
         {
             // Continuously read messages from the server
-            byte[] buffer = new byte[1024];
+            var buffer = new byte[1024];
             while (true)
             {
                 var bytesRead = await socketToListen.ReceiveAsync(new ArraySegment<byte>(buffer), SocketFlags.None);
