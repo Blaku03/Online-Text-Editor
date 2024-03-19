@@ -6,8 +6,27 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Editor.Views.Editor"
         Title="Editor">
-        <avaloniaEdit:TextEditor Text="Hello AvaloniaEdit!"
-        ShowLineNumbers="True"
-        FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
-        Name="MainEditor"/>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /> <!-- Menu -->
+            <RowDefinition Height="*" />    <!-- Content -->
+        </Grid.RowDefinitions>
+
+        <Menu Grid.Row="0">
+            <MenuItem Header="_File">
+                <MenuItem Header="_New" />
+                <MenuItem Header="_Open" />
+                <MenuItem Header="_Save" />
+                <Separator />
+                <MenuItem Header="_Exit" />
+            </MenuItem>
+        </Menu>
+
+        <avaloniaEdit:TextEditor
+            Grid.Row="1"
+            Text="Hello AvaloniaEdit!"
+            ShowLineNumbers="True"
+            FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+            Name="MainEditor" />
+    </Grid>
 </Window>

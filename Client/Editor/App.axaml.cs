@@ -19,7 +19,7 @@ public partial class App : Application
             // {
             //     DataContext = new MainWindowViewModel(),
             // };
-            desktop.MainWindow = new Views.Editor();
+            desktop.MainWindow = new Views.MainMenu();
         }
 
         base.OnFrameworkInitializationCompleted();

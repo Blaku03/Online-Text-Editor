@@ -8,13 +8,13 @@ using MsBox.Avalonia;
 
 namespace Editor.Views;
 
-public partial class MainWindow : Window
+public partial class Demo : Window
 {
     private Socket? _socket; // ! - null-forgiving operator
     private const string ServerIp = "localhost";
     private const int ServerPort = 5234;
 
-    public MainWindow()
+    public Demo()
     {
         InitializeComponent();
         InitializeSocket();
