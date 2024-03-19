@@ -58,7 +58,8 @@ public partial class MainMenu : Window
             await socket.ConnectAsync(IpTextBox.Text, int.Parse(PortTextBox.Text));
             await MessageBoxManager.GetMessageBoxStandard(
                 "Success", "Successfully connected to server").ShowWindowAsync();
-            await socket.DisconnectAsync(false);
+            new Editor(socket).Show();
+            Close();
         }
         catch (Exception ex)
         {
