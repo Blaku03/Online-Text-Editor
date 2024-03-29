@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Net.Sockets;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
+using MsBox.Avalonia;
+using MsBox.Avalonia.Enums;
 
 namespace Editor.Views;
 
@@ -57,7 +60,42 @@ public partial class Editor : Window
             await file.WriteAsync(buffer.AsMemory(0, bytesRead));
         }
     }
-
+    
+    private async void DisconnectFromServer()
+    {
+        try
+        {
+            if (_socket.Connected)
+            {
+                _socket.Shutdown(SocketShutdown.Both);
+                _socket.Close();
+                await MessageBoxManager.GetMessageBoxStandard(
+                    "Success", "Disconnected from server").ShowWindowAsync();
+            }
+            else
+            {
+                await MessageBoxManager.GetMessageBoxStandard(
+                    "Info", "No active connection to disconnect").ShowWindowAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await MessageBoxManager.GetMessageBoxStandard(
+                "Error", "Disconnection from server was unsuccessful. Try again.\n" + ex.Message).ShowWindowAsync();
+        }
+    }
+    
+    private async void Exit_OnClick(object sender, RoutedEventArgs e)
+    {
+        var box = MessageBoxManager.GetMessageBoxStandard("", "Are you sure you want to close the editor?", ButtonEnum.YesNo);
+        var result = await box.ShowAsync();
+        if (result == ButtonResult.Yes)
+        {
+            DisconnectFromServer();
+            Close();
+        }
+    }
+    
     private void OpenFileInEditor()
     {
         // Open the file in the editor
