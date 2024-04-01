@@ -13,12 +13,15 @@ public partial class Editor : Window
 {
     private readonly Socket _socket;
     private Paragraph[]? _paragraphs;
+    private int _currentLineNumber;
 
     public Editor(Socket socket)
     {
         InitializeComponent();
         _socket = socket;
         GetFileFromServer();
+        MainEditor.TextArea.Caret.PositionChanged += Caret_PositionChanged;
+        MainEditor.TextArea.TextEntered += Text_TextEntered;
     }
 
     private async void GetFileFromServer()
@@ -28,14 +31,13 @@ public partial class Editor : Window
         await _socket.ReceiveAsync(metadata);
         var metadataString = Encoding.ASCII.GetString(metadata);
         // Parsing the metadata
-        // TODO update server metadata header (remove file name since it's useless)
-        // Server metadata format: file_size,file_extension,ChunkSize
+        // Server metadata format: file_size,ChunkSize
         var metadataArray = metadataString.Split(',');
         int fileSize, chunkSize;
         try
         {
             fileSize = int.Parse(metadataArray[0]);
-            chunkSize = int.Parse(metadataArray[2]);
+            chunkSize = int.Parse(metadataArray[1]);
         }
         catch (Exception e)
         {
@@ -56,7 +58,7 @@ public partial class Editor : Window
             fileContent.Append(Encoding.ASCII.GetString(buffer));
         }
 
-        _paragraphs = Paragraph.GetParagraphs(fileContent);
+        _paragraphs = Paragraph.GetParagraphs(fileContent.ToString());
         OpenFileInEditor();
     }
 
@@ -66,6 +68,7 @@ public partial class Editor : Window
         {
             if (_socket.Connected)
             {
+                _paragraphs = null;
                 _socket.Shutdown(SocketShutdown.Both);
                 _socket.Close();
                 await MessageBoxManager.GetMessageBoxStandard(
@@ -86,7 +89,7 @@ public partial class Editor : Window
 
     private void OpenFileInEditor()
     {
-        if (_paragraphs != null) MainEditor.Text = Paragraph.GetContent(_paragraphs).TrimEnd('\0');
+        MainEditor.Text = Paragraph.GetContent(_paragraphs);
     }
 
     private async void Exit_OnClick(object sender, RoutedEventArgs e)
@@ -94,11 +97,9 @@ public partial class Editor : Window
         var box = MessageBoxManager.GetMessageBoxStandard("", "Are you sure you want to close the editor?",
             ButtonEnum.YesNo);
         var result = await box.ShowAsync();
-        if (result == ButtonResult.Yes)
-        {
-            await DisconnectFromServer();
-            Close();
-        }
+        if (result != ButtonResult.Yes) return;
+        await DisconnectFromServer();
+        Close();
     }
 
 
@@ -107,5 +108,24 @@ public partial class Editor : Window
         await DisconnectFromServer();
         new MainMenu().Show();
         Close();
+    }
+
+    private void Caret_PositionChanged(object? sender, EventArgs? e)
+    {
+        _currentLineNumber = MainEditor.TextArea.Caret.Line;
+    }
+
+    private void Text_TextEntered(object? sender, EventArgs? e)
+    {
+        if (_paragraphs == null) return;
+
+        // New line is created or paragraph is not locked
+        if (_currentLineNumber - 1 > _paragraphs.Length || !_paragraphs[_currentLineNumber - 1].IsLocked)
+        {
+            _paragraphs = Paragraph.GetParagraphs(MainEditor.Text);
+            return;
+        }
+
+        MainEditor.Text = Paragraph.GetContent(_paragraphs);
     }
 }
