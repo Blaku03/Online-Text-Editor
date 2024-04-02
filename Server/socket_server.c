@@ -13,6 +13,7 @@ typedef struct sockaddr sockaddr;
 #define PORT 5234
 #define MAX_CLIENTS 10
 #define CHUNK_SIZE 1024
+#define MAX_NUMBER_SKIPPED_CHECK_INS 3
 
 int get_file_size(FILE *file)
 {
@@ -92,8 +93,8 @@ int send_file_to_client(int sock, const char *file_name)
 void *connection_handler(void *socket_desc)
 {
   int sock = *(int *)socket_desc; // Get the socket descriptor
-  // int read_size;
-  // char *message, client_message[2000];
+  int read_size;
+  char *message, client_message[CHUNK_SIZE];
   char file_name[] = "example_file.txt";
 
   if (send_file_to_client(sock, file_name) < 0)
@@ -101,18 +102,14 @@ void *connection_handler(void *socket_desc)
     fprintf(stderr, "Error: sending file failed\n");
   }
 
-  // do
-  // {
-  // 	read_size = recv(sock, client_message, 2000, 0); // Receive a message from client
-  // 	client_message[read_size] = '\0';
+  do
+  {
+    read_size = recv(sock, client_message, CHUNK_SIZE, 0); // Receive a message from client
+    client_message[read_size] = '\0';
 
-  // 	/* Send the message back to client */
-  // 	write(sock, client_message, strlen(client_message));
-  // 	printf("Client message: %s\n", client_message);
-
-  // 	/* Clear the message buffer */
-  // 	memset(client_message, 0, 2000);
-  // } while (read_size > 2); /* Wait for empty line */
+    /* Clear the message buffer */
+    memset(client_message, 0, CHUNK_SIZE);
+  } while (read_size > 2); /* Wait for empty line */
 
   fprintf(stderr, "Client disconnected\n");
 
@@ -168,6 +165,4 @@ void start_server(void)
 int main(int argc, char *argv[])
 {
   start_server();
-  // char file_name[] = "example_file.txt";
-  // send_file_to_client(0, file_name);
 }

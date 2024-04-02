@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Editor.Utilities;
 using MsBox.Avalonia;
 
 namespace Editor.Views;

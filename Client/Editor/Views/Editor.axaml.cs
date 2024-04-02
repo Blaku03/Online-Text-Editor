@@ -3,7 +3,9 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Editor.Utilities;
 using MsBox.Avalonia;
 using MsBox.Avalonia.Enums;
 
@@ -14,6 +16,7 @@ public partial class Editor : Window
     private readonly Socket _socket;
     private Paragraph[]? _paragraphs;
     private int _currentLineNumber;
+    private int _currentColumnNumber;
 
     public Editor(Socket socket)
     {
@@ -21,7 +24,7 @@ public partial class Editor : Window
         _socket = socket;
         GetFileFromServer();
         MainEditor.TextArea.Caret.PositionChanged += Caret_PositionChanged;
-        MainEditor.TextArea.TextEntered += Text_TextEntered;
+        // MainEditor.TextArea.KeyDown += Text_DocumentChanged;
     }
 
     private async void GetFileFromServer()
@@ -59,6 +62,7 @@ public partial class Editor : Window
         }
 
         _paragraphs = Paragraph.GetParagraphs(fileContent.ToString());
+        _paragraphs[0].IsLocked = true;
         OpenFileInEditor();
     }
 
@@ -115,17 +119,19 @@ public partial class Editor : Window
         _currentLineNumber = MainEditor.TextArea.Caret.Line;
     }
 
-    private void Text_TextEntered(object? sender, EventArgs? e)
+    private void Text_DocumentChanged(object? sender, KeyEventArgs e)
     {
         if (_paragraphs == null) return;
 
         // New line is created or paragraph is not locked
-        if (_currentLineNumber - 1 > _paragraphs.Length || !_paragraphs[_currentLineNumber - 1].IsLocked)
+        if (_currentLineNumber - 1 >= _paragraphs.Length || !_paragraphs[_currentLineNumber - 1].IsLocked)
         {
-            _paragraphs = Paragraph.GetParagraphs(MainEditor.Text);
+            _paragraphs = Paragraph.GetParagraphs(MainEditor.Text, _paragraphs);
             return;
         }
 
+        _currentColumnNumber = MainEditor.TextArea.Caret.Column;
         MainEditor.Text = Paragraph.GetContent(_paragraphs);
+        MainEditor.TextArea.Caret.Column = _currentColumnNumber;
     }
 }

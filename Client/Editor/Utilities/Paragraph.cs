@@ -1,23 +1,34 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Editor;
+namespace Editor.Utilities;
 
 public class Paragraph
 {
     public StringBuilder Content { get; set; } = new();
     public bool IsLocked { get; set; } = false;
 
-    public static Paragraph[] GetParagraphs(string fileContent)
+    public static Paragraph[] GetParagraphs(string fileContent, Paragraph[]? currentParagraphs = null)
     {
         var paragraphs = fileContent.Split("\n");
+        // Remove last empty line
+        if (paragraphs[^1] == "")
+        {
+            Array.Resize(ref paragraphs, paragraphs.Length - 1);
+        }
 
         // Remove \0 from the last paragraph
         paragraphs[^1] = paragraphs[^1].TrimEnd('\0');
         var paragraphsArr = new Paragraph[paragraphs.Length];
         for (var i = 0; i < paragraphs.Length; i++)
         {
-            paragraphsArr[i] = new Paragraph { Content = new StringBuilder(paragraphs[i]) };
+            paragraphsArr[i] = new Paragraph
+                { Content = new StringBuilder(paragraphs[i]) };
+            if (currentParagraphs != null && i < currentParagraphs.Length)
+            {
+                paragraphsArr[i].IsLocked = currentParagraphs[i].IsLocked;
+            }
         }
 
         return paragraphsArr;
@@ -30,10 +41,11 @@ public class Paragraph
         foreach (var paragraph in paragraphs)
         {
             content.Append(paragraph.Content);
-            if (paragraph.IsLocked)
+            if (paragraph.IsLocked && !content.ToString().EndsWith("(locked)"))
             {
                 content.Append(" (locked)");
             }
+
             content.Append('\n');
         }
 

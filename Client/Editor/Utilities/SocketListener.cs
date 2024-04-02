@@ -2,7 +2,7 @@ using System;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 
-namespace Editor;
+namespace Editor.Utilities;
 
 public static class SocketListener
 {
