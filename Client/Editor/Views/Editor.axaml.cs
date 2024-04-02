@@ -58,7 +58,7 @@ public partial class Editor : Window
         {
             var bytesRead = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer));
             fileSize -= bytesRead;
-            fileContent.Append(Encoding.ASCII.GetString(buffer));
+            fileContent.Append(Encoding.ASCII.GetString(buffer).Replace("\r\n", "\n"));
         }
 
         _paragraphs = Paragraph.GetParagraphs(fileContent.ToString());
@@ -119,6 +119,10 @@ public partial class Editor : Window
         _currentLineNumber = MainEditor.TextArea.Caret.Line;
     }
 
+    // TODO: Known bugs:
+    // 1. When a line is about to be deleted but the line above is locked then then line is not deleted
+    // 2. Adding lines above locked paragraph just messes up the lock status
+
     private void Text_DocumentChanged(object? sender, KeyEventArgs e)
     {
         if (_paragraphs == null) return;
@@ -126,7 +130,7 @@ public partial class Editor : Window
         // New line is created or paragraph is not locked
         if (_currentLineNumber - 1 >= _paragraphs.Length || !_paragraphs[_currentLineNumber - 1].IsLocked)
         {
-            _paragraphs = Paragraph.GetParagraphs(MainEditor.Text, _paragraphs);
+            _paragraphs = Paragraph.GetParagraphs(MainEditor.Text.Replace("\r\n","\n"), _paragraphs);
             return;
         }
 
