@@ -15,15 +15,15 @@ public partial class Editor : Window
 {
     private readonly Socket _socket;
     private Paragraph[]? _paragraphs;
-    private int _currentLineNumber;
-    private int _currentColumnNumber;
+    private int _keyDownLineNumber;
+    private int _keyDownColumnNumber;
 
     public Editor(Socket socket)
     {
         InitializeComponent();
         _socket = socket;
         GetFileFromServer();
-        MainEditor.TextArea.Caret.PositionChanged += Caret_PositionChanged;
+        // MainEditor.TextArea.Caret.PositionChanged += Caret_PositionChanged;
         MainEditor.AddHandler(InputElement.KeyDownEvent, Text_KeyDown, RoutingStrategies.Tunnel);
         MainEditor.AddHandler(InputElement.KeyUpEvent, Text_KeyUp, RoutingStrategies.Tunnel);
         // MainEditor.TextArea.KeyDown += Text_DocumentChanged;
@@ -63,8 +63,8 @@ public partial class Editor : Window
             fileContent.Append(Encoding.ASCII.GetString(buffer).Replace("\r\n", "\n"));
         }
 
-        _paragraphs = Paragraph.GetParagraphs(fileContent.ToString());
-        _paragraphs[0].IsLocked = true;
+        _paragraphs = Paragraph.GetFromText(fileContent.ToString());
+        _paragraphs[1].IsLocked = true;
         OpenFileInEditor();
     }
 
@@ -116,34 +116,63 @@ public partial class Editor : Window
         Close();
     }
 
-    private void Caret_PositionChanged(object? sender, EventArgs? e)
-    {
-        _currentLineNumber = MainEditor.TextArea.Caret.Line;
-    }
-
-    // TODO: Known bugs:
-    // 1. When a line is about to be deleted but the line above is locked then then line is not deleted
-    // 2. Adding lines above locked paragraph just messes up the lock status
+    // TODO: Fix deleting lines
 
     private void Text_KeyDown(object? sender, KeyEventArgs e)
     {
-        Console.WriteLine("hi backslash");
-    }
+        _keyDownColumnNumber = MainEditor.TextArea.Caret.Column;
+        _keyDownLineNumber = MainEditor.TextArea.Caret.Line;
 
-    private void Text_KeyUp(object? sender, KeyEventArgs  e)
-    {
-        Console.WriteLine("hi");
         if (_paragraphs == null) return;
 
-        // New line is created or paragraph is not locked
-        if (_currentLineNumber - 1 >= _paragraphs.Length || !_paragraphs[_currentLineNumber - 1].IsLocked)
+        if (_paragraphs[_keyDownLineNumber - 1].IsLocked)
         {
-            _paragraphs = Paragraph.GetParagraphs(MainEditor.Text.Replace("\r\n","\n"), _paragraphs);
+            if (e.Key == Key.Left) MainEditor.TextArea.Caret.Column--;
+            if (e.Key == Key.Right) MainEditor.TextArea.Caret.Column++;
+            if (e.Key == Key.Up) MainEditor.TextArea.Caret.Line--;
+            if (e.Key == Key.Down) MainEditor.TextArea.Caret.Line++;
+            _keyDownColumnNumber = MainEditor.TextArea.Caret.Column;
+            _keyDownLineNumber = MainEditor.TextArea.Caret.Line;
+            e.Handled = true;
+        }
+
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = !Paragraph.AddNewLine(ref _paragraphs, _keyDownLineNumber, _keyDownColumnNumber);
+        }
+    }
+
+    private void Text_KeyUp(object? sender, KeyEventArgs e)
+    {
+        if (_paragraphs == null) return;
+
+        if (e.Key == Key.Enter) return;
+
+        if (ShouldUpdateParagraphs())
+        {
+            // Standardize new line endings
+            _paragraphs = Paragraph.GetFromText(MainEditor.Text.Replace("\r\n", "\n"), _paragraphs);
             return;
         }
 
-        _currentColumnNumber = MainEditor.TextArea.Caret.Column;
         MainEditor.Text = Paragraph.GetContent(_paragraphs);
-        MainEditor.TextArea.Caret.Column = _currentColumnNumber;
+        MainEditor.TextArea.Caret.Line = _keyDownLineNumber;
+        MainEditor.TextArea.Caret.Column = _keyDownColumnNumber;
+    }
+
+    private bool ShouldUpdateParagraphs()
+    {
+        int currentLineNumber = MainEditor.TextArea.Caret.Line;
+
+        // New line is created
+        if (currentLineNumber - 1 >= _paragraphs!.Length) return true;
+
+        // Paragraph is not locked
+        if (!_paragraphs[currentLineNumber - 1].IsLocked) return true;
+
+        // Started on non locked paragraph
+        if (!_paragraphs[_keyDownLineNumber - 1].IsLocked) return true;
+
+        return false;
     }
 }

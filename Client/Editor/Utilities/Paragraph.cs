@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Text;
 
 namespace Editor.Utilities;
@@ -7,29 +6,32 @@ namespace Editor.Utilities;
 public class Paragraph
 {
     private StringBuilder Content { get; init; } = new();
-    public bool IsLocked { get; set; } = false;
+    public bool IsLocked { get; set; }
 
-    public static Paragraph[] GetParagraphs(string fileContent, Paragraph[]? currentParagraphs = null)
+    private const string LockedString = " (locked)";
+
+    public static Paragraph[] GetFromText(string fileContent, Paragraph[]? currentParagraphs = null)
     {
-        var paragraphs = fileContent.Split("\n");
-
-        // Remove last empty line
-        // if (paragraphs[^1] == "")
-        // {
-        //     Array.Resize(ref paragraphs, paragraphs.Length - 1);
-        // }
+        var paragraphsFile = fileContent.Split("\n");
 
         // Remove \0 from the last paragraph
-        paragraphs[^1] = paragraphs[^1].TrimEnd('\0');
+        paragraphsFile[^1] = paragraphsFile[^1].TrimEnd('\0');
 
-        var paragraphsArr = new Paragraph[paragraphs.Length];
-        for (var i = 0; i < paragraphs.Length; i++)
+        var paragraphsArr = new Paragraph[paragraphsFile.Length];
+        for (var i = 0; i < paragraphsFile.Length; i++)
         {
             paragraphsArr[i] = new Paragraph
-                { Content = new StringBuilder(paragraphs[i]) };
-            if (currentParagraphs != null && i < currentParagraphs.Length)
+                { Content = new StringBuilder(paragraphsFile[i]) };
+            if (currentParagraphs != null)
             {
                 paragraphsArr[i].IsLocked = currentParagraphs[i].IsLocked;
+
+                // Delete LockedSymbol from the content
+                if (paragraphsArr[i].IsLocked)
+                {
+                    paragraphsArr[i].Content.Remove(paragraphsArr[i].Content.Length - LockedString.Length,
+                        LockedString.Length);
+                }
             }
         }
 
@@ -43,20 +45,47 @@ public class Paragraph
         for (int i = 0; i < paragraphs.Length; i++)
         {
             content.Append(paragraphs[i].Content);
-            if (paragraphs[i].IsLocked && !content.ToString().EndsWith("(locked)"))
+            if (paragraphs[i].IsLocked && !content.ToString().EndsWith(LockedString))
             {
-                content.Append(" (locked)");
+                content.Append(LockedString);
             }
 
-            if(i+1 < paragraphs.Length && !paragraphs[i+1].Content.ToString().Equals(""))
+            if (i + 1 < paragraphs.Length && !paragraphs[i + 1].Content.ToString().Equals(""))
                 content.Append('\n');
 
-            if(paragraphs[i].Content.Equals(""))
-               content.Append('\n');
+            if (paragraphs[i].Content.Equals(""))
+                content.Append('\n');
         }
 
-        // if(paragraphs[^1].Content.ToString().Equals(""))
-        //     content.Append('\n');
         return content.ToString();
+    }
+
+    public static bool AddNewLine(ref Paragraph[] paragraphs, int line, int column)
+    {
+        // Account column length for LockedString
+        column -= paragraphs[line - 1].IsLocked ? LockedString.Length + 1 : 1;
+
+        // Account for negative column
+        column = Math.Max(0, column);
+
+        if (column != paragraphs[line - 1].Content.Length && column != 0) return false;
+
+        int lockedLineOffsetModifier = column == 0 ? 1 : 0;
+
+        var newParagraphs = new Paragraph[paragraphs.Length + 1];
+
+        for (var i = 0; i < line - lockedLineOffsetModifier; i++)
+        {
+            newParagraphs[i] = paragraphs[i];
+        }
+
+        newParagraphs[line - lockedLineOffsetModifier] = new Paragraph { Content = new StringBuilder() };
+        for (var i = line + 1 - lockedLineOffsetModifier; i < newParagraphs.Length; i++)
+        {
+            newParagraphs[i] = paragraphs[i - 1];
+        }
+
+        paragraphs = newParagraphs;
+        return true;
     }
 }
