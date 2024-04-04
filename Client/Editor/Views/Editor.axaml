@@ -28,7 +28,7 @@
             Text="Hello AvaloniaEdit!"
             ShowLineNumbers="True"
             FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
-            KeyUp="Text_DocumentChanged"
+            Focusable="True"
             Name="MainEditor" />
     </Grid>
 </Window>

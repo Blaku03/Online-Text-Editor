@@ -24,6 +24,8 @@ public partial class Editor : Window
         _socket = socket;
         GetFileFromServer();
         MainEditor.TextArea.Caret.PositionChanged += Caret_PositionChanged;
+        MainEditor.AddHandler(InputElement.KeyDownEvent, Text_KeyDown, RoutingStrategies.Tunnel);
+        MainEditor.AddHandler(InputElement.KeyUpEvent, Text_KeyUp, RoutingStrategies.Tunnel);
         // MainEditor.TextArea.KeyDown += Text_DocumentChanged;
     }
 
@@ -123,8 +125,14 @@ public partial class Editor : Window
     // 1. When a line is about to be deleted but the line above is locked then then line is not deleted
     // 2. Adding lines above locked paragraph just messes up the lock status
 
-    private void Text_DocumentChanged(object? sender, KeyEventArgs e)
+    private void Text_KeyDown(object? sender, KeyEventArgs e)
     {
+        Console.WriteLine("hi backslash");
+    }
+
+    private void Text_KeyUp(object? sender, KeyEventArgs  e)
+    {
+        Console.WriteLine("hi");
         if (_paragraphs == null) return;
 
         // New line is created or paragraph is not locked
