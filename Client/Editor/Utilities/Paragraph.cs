@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using Avalonia.Input;
 
 namespace Editor.Utilities;
 
@@ -87,5 +88,44 @@ public class Paragraph
 
         paragraphs = newParagraphs;
         return true;
+    }
+
+    public static bool DeleteLine(ref Paragraph[] paragraphs, int line, int column, Key delKey)
+    {
+        // Account column length for LockedString
+        column -= paragraphs[line - 1].IsLocked ? LockedString.Length + 1 : 1;
+
+        // Account for negative column
+        column = Math.Max(0, column);
+
+        if (column != paragraphs[line - 1].Content.Length && column != 0) return false;
+
+        if (column == 0 && delKey == Key.Delete && paragraphs[line - 1].Content.Length > 0) return false;
+
+        if (column == paragraphs[line - 1].Content.Length && delKey == Key.Back && column != 0) return false;
+
+        int lockedLineOffsetModifier = column == 0 ? 1 : 0;
+
+        var newParagraphs = new Paragraph[paragraphs.Length - 1];
+
+        for (var i = 0; i < line - lockedLineOffsetModifier; i++)
+        {
+            newParagraphs[i] = paragraphs[i];
+        }
+
+        for (var i = line; i < newParagraphs.Length + lockedLineOffsetModifier; i++)
+        {
+            newParagraphs[i - lockedLineOffsetModifier] = paragraphs[i];
+        }
+
+        paragraphs = newParagraphs;
+
+        return true;
+    }
+
+    public static string ToggleLineLock(ref Paragraph[] paragraphs, int line)
+    {
+        paragraphs[line - 1].IsLocked = !paragraphs[line - 1].IsLocked;
+        return Paragraph.GetContent(paragraphs);
     }
 }

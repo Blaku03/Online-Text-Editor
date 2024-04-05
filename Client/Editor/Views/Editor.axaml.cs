@@ -17,6 +17,8 @@ public partial class Editor : Window
     private Paragraph[]? _paragraphs;
     private int _keyDownLineNumber;
     private int _keyDownColumnNumber;
+    private bool _skipKeyUpEvent;
+    private bool _backspaceInProgress;
 
     public Editor(Socket socket)
     {
@@ -134,11 +136,42 @@ public partial class Editor : Window
             _keyDownColumnNumber = MainEditor.TextArea.Caret.Column;
             _keyDownLineNumber = MainEditor.TextArea.Caret.Line;
             e.Handled = true;
+            _skipKeyUpEvent = true;
         }
 
         if (e.Key == Key.Enter)
         {
             e.Handled = !Paragraph.AddNewLine(ref _paragraphs, _keyDownLineNumber, _keyDownColumnNumber);
+        }
+
+        if (e.Key is Key.Delete or Key.Back)
+        {
+            if (_backspaceInProgress)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            _backspaceInProgress = true;
+            _skipKeyUpEvent = Paragraph.DeleteLine(ref _paragraphs, _keyDownLineNumber, _keyDownColumnNumber, e.Key) ||
+                              e.Handled;
+            // if (_skipKeyUpEvent)
+            // {
+            //     MainEditor.Text = Paragraph.GetContent(_paragraphs);
+            //     MainEditor.TextArea.Caret.Line = _keyDownLineNumber;
+            //     MainEditor.TextArea.Caret.Column = _keyDownColumnNumber;
+            //     e.Handled = true;
+            // }
+
+            _backspaceInProgress = false;
+        }
+
+        if (e.Key == Key.Insert)
+        {
+            MainEditor.Text = Paragraph.ToggleLineLock(ref _paragraphs, _keyDownLineNumber);
+            MainEditor.TextArea.Caret.Line = _keyDownLineNumber;
+            MainEditor.TextArea.Caret.Column = _keyDownColumnNumber;
+            _skipKeyUpEvent = true;
         }
     }
 
@@ -147,6 +180,8 @@ public partial class Editor : Window
         if (_paragraphs == null) return;
 
         if (e.Key == Key.Enter) return;
+
+        if (_skipKeyUpEvent) return;
 
         if (ShouldUpdateParagraphs())
         {
