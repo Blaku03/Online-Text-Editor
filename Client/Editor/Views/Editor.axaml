@@ -17,6 +17,7 @@
                 <MenuItem Header="_New" />
                 <MenuItem Header="_Open" />
                 <MenuItem Header="_Save" />
+                <MenuItem Header="_Disconnect" Click="Disconnect_OnClick"></MenuItem>
                 <Separator />
                 <MenuItem Header="_Exit" Click="Exit_OnClick"/>
             </MenuItem>
@@ -25,8 +26,10 @@
         <avaloniaEdit:TextEditor
             Grid.Row="1"
             Text="Hello AvaloniaEdit!"
+            WordWrap="True"
             ShowLineNumbers="True"
             FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+            Focusable="True"
             Name="MainEditor" />
     </Grid>
 </Window>
