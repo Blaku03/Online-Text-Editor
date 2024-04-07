@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using AvaloniaEdit.Editing;
 using Editor.Utilities;
 using MsBox.Avalonia;
 using MsBox.Avalonia.Enums;
@@ -28,6 +29,11 @@ public partial class Editor : Window
         GetFileFromServer();
         MainEditor.AddHandler(InputElement.KeyDownEvent, Text_KeyDown, RoutingStrategies.Tunnel);
         MainEditor.AddHandler(InputElement.KeyUpEvent, Text_KeyUp, RoutingStrategies.Tunnel);
+
+        // Disable selection of text
+        MainEditor.AddHandler(InputElement.PointerMovedEvent,
+            (sender, e) => { MainEditor.TextArea.Selection = Selection.Create(MainEditor.TextArea, 0, 0); },
+            RoutingStrategies.Tunnel);
     }
 
     private async void GetFileFromServer()
