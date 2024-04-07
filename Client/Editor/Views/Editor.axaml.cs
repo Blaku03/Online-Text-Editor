@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,21 +16,18 @@ namespace Editor.Views;
 public partial class Editor : Window
 {
     private readonly Socket _socket;
-    private Paragraph[]? _paragraphs;
-    private int _keyDownLineNumber;
-    private int _keyDownColumnNumber;
-    private bool _skipKeyUpEvent;
-    private bool _backspaceInProgress;
+    private LinkedList<Paragraph>? _paragraphs;
+    private int CaretLine => MainEditor.TextArea.Caret.Line;
+    private int CaretColumn => MainEditor.TextArea.Caret.Column;
+    private bool _keyHandled;
 
     public Editor(Socket socket)
     {
         InitializeComponent();
         _socket = socket;
         GetFileFromServer();
-        // MainEditor.TextArea.Caret.PositionChanged += Caret_PositionChanged;
         MainEditor.AddHandler(InputElement.KeyDownEvent, Text_KeyDown, RoutingStrategies.Tunnel);
         MainEditor.AddHandler(InputElement.KeyUpEvent, Text_KeyUp, RoutingStrategies.Tunnel);
-        // MainEditor.TextArea.KeyDown += Text_DocumentChanged;
     }
 
     private async void GetFileFromServer()
@@ -65,8 +64,8 @@ public partial class Editor : Window
             fileContent.Append(Encoding.ASCII.GetString(buffer).Replace("\r\n", "\n"));
         }
 
-        _paragraphs = Paragraph.GetFromText(fileContent.ToString());
-        _paragraphs[1].IsLocked = true;
+        _paragraphs = Paragraph.GenerateFromText(fileContent.ToString());
+        _paragraphs.ElementAt(1).IsLocked = true;
         OpenFileInEditor();
     }
 
@@ -119,95 +118,104 @@ public partial class Editor : Window
     }
 
     // TODO: Fix deleting lines
+    // Deleting line only if it's empty and not locked
 
     private void Text_KeyDown(object? sender, KeyEventArgs e)
     {
-        _keyDownColumnNumber = MainEditor.TextArea.Caret.Column;
-        _keyDownLineNumber = MainEditor.TextArea.Caret.Line;
-
         if (_paragraphs == null) return;
+        if (IsSafeKey(e.Key)) return;
 
-        if (_paragraphs[_keyDownLineNumber - 1].IsLocked)
-        {
-            if (e.Key == Key.Left) MainEditor.TextArea.Caret.Column--;
-            if (e.Key == Key.Right) MainEditor.TextArea.Caret.Column++;
-            if (e.Key == Key.Up) MainEditor.TextArea.Caret.Line--;
-            if (e.Key == Key.Down) MainEditor.TextArea.Caret.Line++;
-            _keyDownColumnNumber = MainEditor.TextArea.Caret.Column;
-            _keyDownLineNumber = MainEditor.TextArea.Caret.Line;
-            e.Handled = true;
-            _skipKeyUpEvent = true;
-        }
+        _keyHandled = false;
+        var caretParagraph = _paragraphs.ElementAt(CaretLine - 1);
 
         if (e.Key == Key.Enter)
         {
-            e.Handled = !Paragraph.AddNewLine(ref _paragraphs, _keyDownLineNumber, _keyDownColumnNumber);
-        }
-
-        if (e.Key is Key.Delete or Key.Back)
-        {
-            if (_backspaceInProgress)
+            if (!Paragraph.CaretAtTheEndOfLine(caretParagraph, CaretColumn))
             {
                 e.Handled = true;
+                _keyHandled = true;
                 return;
             }
 
-            _backspaceInProgress = true;
-            _skipKeyUpEvent = Paragraph.DeleteLine(ref _paragraphs, _keyDownLineNumber, _keyDownColumnNumber, e.Key) ||
-                              e.Handled;
-            // if (_skipKeyUpEvent)
-            // {
-            //     MainEditor.Text = Paragraph.GetContent(_paragraphs);
-            //     MainEditor.TextArea.Caret.Line = _keyDownLineNumber;
-            //     MainEditor.TextArea.Caret.Column = _keyDownColumnNumber;
-            //     e.Handled = true;
-            // }
+            var newParagraph = new Paragraph { Content = new StringBuilder() };
+            var currentNode = _paragraphs.First;
+            for (int i = 0; i < CaretLine - 1 && currentNode != null; i++)
+            {
+                currentNode = currentNode.Next;
+            }
 
-            _backspaceInProgress = false;
+            _paragraphs.AddAfter(currentNode!, newParagraph);
+            MainEditor.Text = Paragraph.GetContent(_paragraphs);
+            MainEditor.TextArea.Caret.Line = _paragraphs.Count + 1;
+            e.Handled = true;
+            _keyHandled = true;
+            return;
         }
 
         if (e.Key == Key.Insert)
         {
-            MainEditor.Text = Paragraph.ToggleLineLock(ref _paragraphs, _keyDownLineNumber);
-            MainEditor.TextArea.Caret.Line = _keyDownLineNumber;
-            MainEditor.TextArea.Caret.Column = _keyDownColumnNumber;
-            _skipKeyUpEvent = true;
+            // Toggle of lock
+            caretParagraph.IsLocked = !caretParagraph.IsLocked;
+            e.Handled = true;
+            var caretCopyLine = MainEditor.TextArea.Caret.Line;
+            var caretCopyColumn = MainEditor.TextArea.Caret.Column;
+            MainEditor.Text = Paragraph.GetContent(_paragraphs);
+            MainEditor.TextArea.Caret.Line = caretCopyLine;
+            MainEditor.TextArea.Caret.Column = caretCopyColumn;
+            return;
+        }
+
+        // Basic lock check
+        if (caretParagraph.IsLocked)
+        {
+            e.Handled = true;
+            _keyHandled = true;
+            return;
+        }
+
+        // Special handling of deleting
+        if (e.Key == Key.Back)
+        {
+            if (caretParagraph.Content.Length == 0)
+            {
+                _paragraphs.Remove(caretParagraph);
+                _keyHandled = true;
+                return;
+            }
+
+            if (CaretColumn == 0)
+            {
+                e.Handled = true;
+                _keyHandled = true;
+            }
+
+            return;
+        }
+
+        // Disable using del if caret is at the end of the line
+        if (e.Key == Key.Delete)
+        {
+            if (caretParagraph.Content.Length == CaretColumn)
+            {
+                e.Handled = true;
+                _keyHandled = true;
+            }
         }
     }
 
     private void Text_KeyUp(object? sender, KeyEventArgs e)
     {
         if (_paragraphs == null) return;
+        if (IsSafeKey(e.Key)) return;
+        if (_keyHandled) return;
 
-        if (e.Key == Key.Enter) return;
-
-        if (_skipKeyUpEvent) return;
-
-        if (ShouldUpdateParagraphs())
-        {
-            // Standardize new line endings
-            _paragraphs = Paragraph.GetFromText(MainEditor.Text.Replace("\r\n", "\n"), _paragraphs);
-            return;
-        }
-
-        MainEditor.Text = Paragraph.GetContent(_paragraphs);
-        MainEditor.TextArea.Caret.Line = _keyDownLineNumber;
-        MainEditor.TextArea.Caret.Column = _keyDownColumnNumber;
+        // Update the content of the paragraph
+        _paragraphs = Paragraph.GenerateFromText(MainEditor.Text, _paragraphs);
     }
 
-    private bool ShouldUpdateParagraphs()
+    private bool IsSafeKey(Key key)
     {
-        int currentLineNumber = MainEditor.TextArea.Caret.Line;
-
-        // New line is created
-        if (currentLineNumber - 1 >= _paragraphs!.Length) return true;
-
-        // Paragraph is not locked
-        if (!_paragraphs[currentLineNumber - 1].IsLocked) return true;
-
-        // Started on non locked paragraph
-        if (!_paragraphs[_keyDownLineNumber - 1].IsLocked) return true;
-
-        return false;
+        // Keys that won't change the content of the paragraph
+        return key is Key.Up or Key.Down or Key.Left or Key.Right or Key.Home or Key.End or Key.PageUp or Key.PageDown;
     }
 }

@@ -26,6 +26,7 @@
         <avaloniaEdit:TextEditor
             Grid.Row="1"
             Text="Hello AvaloniaEdit!"
+            WordWrap="True"
             ShowLineNumbers="True"
             FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
             Focusable="True"

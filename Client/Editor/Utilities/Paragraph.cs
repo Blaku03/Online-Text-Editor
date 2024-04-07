@@ -1,36 +1,37 @@
-using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
-using Avalonia.Input;
 
 namespace Editor.Utilities;
 
 public class Paragraph
 {
-    private StringBuilder Content { get; init; } = new();
+    internal StringBuilder Content { get; init; } = new();
     public bool IsLocked { get; set; }
 
     private const string LockedString = " (locked)";
 
-    public static Paragraph[] GetFromText(string fileContent, Paragraph[]? currentParagraphs = null)
+    public static LinkedList<Paragraph> GenerateFromText(string fileContent,
+        LinkedList<Paragraph>? currentParagraphs = null)
     {
         var paragraphsFile = fileContent.Split("\n");
 
         // Remove \0 from the last paragraph
         paragraphsFile[^1] = paragraphsFile[^1].TrimEnd('\0');
 
-        var paragraphsArr = new Paragraph[paragraphsFile.Length];
+        var paragraphsArr = new LinkedList<Paragraph>();
         for (var i = 0; i < paragraphsFile.Length; i++)
         {
-            paragraphsArr[i] = new Paragraph
-                { Content = new StringBuilder(paragraphsFile[i]) };
+            paragraphsArr.AddLast(new Paragraph { Content = new StringBuilder(paragraphsFile.ElementAt(i)) });
             if (currentParagraphs != null)
             {
-                paragraphsArr[i].IsLocked = currentParagraphs[i].IsLocked;
+                paragraphsArr.ElementAt(i).IsLocked = currentParagraphs.ElementAt(i).IsLocked;
 
                 // Delete LockedSymbol from the content
-                if (paragraphsArr[i].IsLocked)
+                if (paragraphsArr.ElementAt(i).IsLocked)
                 {
-                    paragraphsArr[i].Content.Remove(paragraphsArr[i].Content.Length - LockedString.Length,
+                    paragraphsArr.ElementAt(i).Content.Remove(
+                        paragraphsArr.ElementAt(i).Content.Length - LockedString.Length,
                         LockedString.Length);
                 }
             }
@@ -39,93 +40,32 @@ public class Paragraph
         return paragraphsArr;
     }
 
-    public static string GetContent(Paragraph[]? paragraphs)
+    public static string GetContent(LinkedList<Paragraph>? paragraphs)
     {
         if (paragraphs == null) return "";
         var content = new StringBuilder();
-        for (int i = 0; i < paragraphs.Length; i++)
+        for (int i = 0; i < paragraphs.Count; i++)
         {
-            content.Append(paragraphs[i].Content);
-            if (paragraphs[i].IsLocked && !content.ToString().EndsWith(LockedString))
+            var currentParagraph = paragraphs.ElementAt(i);
+            content.Append(currentParagraph.Content);
+            if (currentParagraph.IsLocked && !currentParagraph.Content.ToString().EndsWith(LockedString))
             {
                 content.Append(LockedString);
             }
 
-            if (i + 1 < paragraphs.Length && !paragraphs[i + 1].Content.ToString().Equals(""))
+            if (i + 1 < paragraphs.Count)
+            {
                 content.Append('\n');
-
-            if (paragraphs[i].Content.Equals(""))
-                content.Append('\n');
+            }
         }
 
         return content.ToString();
     }
 
-    public static bool AddNewLine(ref Paragraph[] paragraphs, int line, int column)
+    public static bool CaretAtTheEndOfLine(Paragraph paragraph, int caretColumn)
     {
-        // Account column length for LockedString
-        column -= paragraphs[line - 1].IsLocked ? LockedString.Length + 1 : 1;
-
-        // Account for negative column
-        column = Math.Max(0, column);
-
-        if (column != paragraphs[line - 1].Content.Length && column != 0) return false;
-
-        int lockedLineOffsetModifier = column == 0 ? 1 : 0;
-
-        var newParagraphs = new Paragraph[paragraphs.Length + 1];
-
-        for (var i = 0; i < line - lockedLineOffsetModifier; i++)
-        {
-            newParagraphs[i] = paragraphs[i];
-        }
-
-        newParagraphs[line - lockedLineOffsetModifier] = new Paragraph { Content = new StringBuilder() };
-        for (var i = line + 1 - lockedLineOffsetModifier; i < newParagraphs.Length; i++)
-        {
-            newParagraphs[i] = paragraphs[i - 1];
-        }
-
-        paragraphs = newParagraphs;
-        return true;
-    }
-
-    public static bool DeleteLine(ref Paragraph[] paragraphs, int line, int column, Key delKey)
-    {
-        // Account column length for LockedString
-        column -= paragraphs[line - 1].IsLocked ? LockedString.Length + 1 : 1;
-
-        // Account for negative column
-        column = Math.Max(0, column);
-
-        if (column != paragraphs[line - 1].Content.Length && column != 0) return false;
-
-        if (column == 0 && delKey == Key.Delete && paragraphs[line - 1].Content.Length > 0) return false;
-
-        if (column == paragraphs[line - 1].Content.Length && delKey == Key.Back && column != 0) return false;
-
-        int lockedLineOffsetModifier = column == 0 ? 1 : 0;
-
-        var newParagraphs = new Paragraph[paragraphs.Length - 1];
-
-        for (var i = 0; i < line - lockedLineOffsetModifier; i++)
-        {
-            newParagraphs[i] = paragraphs[i];
-        }
-
-        for (var i = line; i < newParagraphs.Length + lockedLineOffsetModifier; i++)
-        {
-            newParagraphs[i - lockedLineOffsetModifier] = paragraphs[i];
-        }
-
-        paragraphs = newParagraphs;
-
-        return true;
-    }
-
-    public static string ToggleLineLock(ref Paragraph[] paragraphs, int line)
-    {
-        paragraphs[line - 1].IsLocked = !paragraphs[line - 1].IsLocked;
-        return Paragraph.GetContent(paragraphs);
+        var paragraphLength = paragraph.Content.Length + 1;
+        paragraphLength += paragraph.IsLocked ? LockedString.Length : 0;
+        return caretColumn == paragraphLength;
     }
 }
