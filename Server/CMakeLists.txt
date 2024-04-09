@@ -1,6 +1,7 @@
 #if you want to build server with cmake:
 #mkdir cmake-build
 #cd cmake-build
+#cmake ..
 #cmake --build .
 #server executable will inside cmake-build dir
 
