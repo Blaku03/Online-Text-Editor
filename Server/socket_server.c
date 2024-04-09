@@ -95,7 +95,7 @@ void *connection_handler(void *socket_desc)
   int sock = *(int *)socket_desc; // Get the socket descriptor
   int read_size;
   char *message, client_message[CHUNK_SIZE];
-  char file_name[] = "example_file.txt";
+  char file_name[] = "../example_file.txt";
 
   if (send_file_to_client(sock, file_name) < 0)
   {
@@ -106,10 +106,10 @@ void *connection_handler(void *socket_desc)
   {
     read_size = recv(sock, client_message, CHUNK_SIZE, 0); // Receive a message from client
     client_message[read_size] = '\0';
-
+    fprintf(stderr, "SocketID: %d, ClientMessage: %s \n", sock, client_message);
     /* Clear the message buffer */
     memset(client_message, 0, CHUNK_SIZE);
-  } while (read_size > 2); /* Wait for empty line */
+  } while (read_size!=0);
 
   fprintf(stderr, "Client disconnected\n");
 

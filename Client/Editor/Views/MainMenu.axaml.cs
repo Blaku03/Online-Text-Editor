@@ -56,8 +56,8 @@ public partial class MainMenu : Window
             var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream,
                 ProtocolType.Tcp);
             await socket.ConnectAsync(IpTextBox.Text, int.Parse(PortTextBox.Text));
-            await MessageBoxManager.GetMessageBoxStandard(
-                "Success", "Successfully connected to server").ShowWindowAsync();
+            // await MessageBoxManager.GetMessageBoxStandard(
+            //     "Success", "Successfully connected to server").ShowWindowAsync();
             new Editor(socket).Show();
             Close();
         }

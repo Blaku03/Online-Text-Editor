@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -21,6 +22,10 @@ public partial class Editor : Window
     private int CaretLine => MainEditor.TextArea.Caret.Line;
     private int CaretColumn => MainEditor.TextArea.Caret.Column;
     private bool _keyHandled;
+    
+    //flags for stopping thread's tasks
+    private readonly CancellationTokenSource _cancellationTokenForSyncParagraphSending = new();
+    
 
     public Editor(Socket socket)
     {
@@ -73,7 +78,29 @@ public partial class Editor : Window
         _paragraphs = Paragraph.GenerateFromText(fileContent.ToString());
         _paragraphs.ElementAt(1).IsLocked = true;
         OpenFileInEditor();
+        
+        // starting thread for sync sending paragraphs to the server
+        Thread synchronousParagraphSending = new(() =>
+        {
+            try
+            {
+                SyncParagraphSending.SendDataToTheServer(_socket, this, _cancellationTokenForSyncParagraphSending.Token).Wait();
+            }
+            catch (Exception ex)
+            {
+                // ignored because it raises exception when the thread is stopped by the token
+            }
+        });
+
+        synchronousParagraphSending.Start();
     }
+    
+    public Paragraph? GetParagraph(int line)
+    {
+        return _paragraphs?.ElementAt(line - 1);
+    }
+
+    public int GetCaretLine() => CaretLine;
 
     private async Task DisconnectFromServer()
     {
@@ -81,6 +108,7 @@ public partial class Editor : Window
         {
             if (_socket.Connected)
             {
+                await _cancellationTokenForSyncParagraphSending.CancelAsync();
                 _paragraphs = null;
                 _socket.Shutdown(SocketShutdown.Both);
                 _socket.Close();
@@ -158,7 +186,7 @@ public partial class Editor : Window
             return;
         }
 
-        if (e.Key == Key.Insert)
+        if (e.Key is Key.Insert or Key.Q)
         {
             // Toggle of lock
             caretParagraph.IsLocked = !caretParagraph.IsLocked;

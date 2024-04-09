@@ -10,5 +10,5 @@ project(Server C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(Server
+add_executable(a
         socket_server.c)
