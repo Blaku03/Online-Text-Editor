@@ -11,4 +11,8 @@ project(Server C)
 set(CMAKE_C_STANDARD 11)
 
 add_executable(a
-        socket_server.c)
+        socket_server.c
+        client_handler.c
+        client_handler.h
+        linked_list.c
+        linked_list.h)

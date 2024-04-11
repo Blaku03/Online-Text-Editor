@@ -1,2 +1,4 @@
 Some fun text
 This is in new line
+test
+file

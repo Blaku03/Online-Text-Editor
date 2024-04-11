@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
@@ -22,9 +23,12 @@ public partial class Editor : Window
     private int CaretLine => MainEditor.TextArea.Caret.Line;
     private int CaretColumn => MainEditor.TextArea.Caret.Column;
     private bool _keyHandled;
-    
+
+    public const int SyncParagraphProtocolId = 1;
+
     //flags for stopping thread's tasks
     private readonly CancellationTokenSource _cancellationTokenForSyncParagraphSending = new();
+    private readonly CancellationTokenSource _cancellationTokenForServerListener = new();
     
 
     public Editor(Socket socket)
@@ -91,8 +95,22 @@ public partial class Editor : Window
                 // ignored because it raises exception when the thread is stopped by the token
             }
         });
-
+        
         synchronousParagraphSending.Start();
+        
+        Thread serverListener = new(() =>
+        {
+            try
+            {
+                ServerListener.ListenServer(_socket, this, _cancellationTokenForServerListener.Token).Wait();
+            }
+            catch (Exception ex)
+            {
+                // ignored because it raises exception when the thread is stopped by the token
+            }
+        });
+
+        serverListener.Start();
     }
     
     public Paragraph? GetParagraph(int line)
@@ -108,7 +126,8 @@ public partial class Editor : Window
         {
             if (_socket.Connected)
             {
-                await _cancellationTokenForSyncParagraphSending.CancelAsync();
+                _cancellationTokenForServerListener.CancelAsync();
+                _cancellationTokenForSyncParagraphSending.CancelAsync();
                 _paragraphs = null;
                 _socket.Shutdown(SocketShutdown.Both);
                 _socket.Close();
@@ -236,6 +255,14 @@ public partial class Editor : Window
             }
         }
     }
+    
+    
+    //handling closing window by 'x'
+    protected override async void OnClosing(WindowClosingEventArgs e)
+    {
+        await DisconnectFromServer();
+        base.OnClosing(e);
+    }
 
     private void Text_KeyUp(object? sender, KeyEventArgs e)
     {
@@ -247,7 +274,7 @@ public partial class Editor : Window
         _paragraphs = Paragraph.GenerateFromText(MainEditor.Text, _paragraphs);
     }
 
-    private bool IsSafeKey(Key key)
+    private static bool IsSafeKey(Key key)
     {
         // Keys that won't change the content of the paragraph
         return key is Key.Up or Key.Down or Key.Left or Key.Right or Key.Home or Key.End or Key.PageUp or Key.PageDown;
