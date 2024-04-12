@@ -32,8 +32,9 @@ public static class SyncParagraphSending
             {
                 if (!_lastSentParagraphs[currentParagraph.Id]!.Equals(content))
                 {
-                    var data = $"{Views.Editor.SyncParagraphProtocolId},{currentParagraphNumber},{content}";
-                    await socketToListen.SendAsync(System.Text.Encoding.ASCII.GetBytes(data));
+                    var modifiedContent = content! + "\n";
+                    var data = $"{Views.Editor.SyncParagraphProtocolId},{currentParagraphNumber},{modifiedContent}";
+                    await socketToListen.SendAsync(Encoding.ASCII.GetBytes(data));
                     _lastSentParagraphs[currentParagraph.Id] = content;
                 }
             }

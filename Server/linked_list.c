@@ -238,3 +238,19 @@ void refresh_file(LinkedList *list, const char *file_name) {
     fclose(file);
     pthread_mutex_unlock(&linked_list_mutex);
 }
+
+char *get_content_of_paragraph(LinkedList *list, int paragraph_number) {
+    pthread_mutex_lock(&linked_list_mutex);
+    Node* temp = list->head;
+    int current_number = 1;
+    while (temp != NULL && current_number < paragraph_number) {
+        temp = temp->next;
+        current_number++;
+    }
+    if (temp != NULL) {
+        pthread_mutex_unlock(&linked_list_mutex);
+        return temp->content;
+    }
+    pthread_mutex_unlock(&linked_list_mutex);
+    return NULL;
+}

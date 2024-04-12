@@ -12,7 +12,7 @@ void *connection_handler(void* args)
     LinkedList *paragraphs = actual_args -> paragraphs;
 
     int read_size;
-    char *message, client_message[CHUNK_SIZE];
+    char *message, *client_message_copy, client_message[CHUNK_SIZE];
 
     add_socket(sock);
 
@@ -48,8 +48,20 @@ void *connection_handler(void* args)
             case SYNC_PROTOCOL_ID:
                 sync_protocol(sock, paragraphs, client_message);
                 break;
-            case ASYNC_PROTOCOL_ADD_PARAGRAPH:
+            case ASYNC_PROTOCOL_ADD_PARAGRAPH_ID:
                 async_protocol_new_paragraph(sock, paragraphs, client_message, 1);
+                break;
+            case ASYNC_PROTOCOL_DELETE_PARAGRAPH_ID:
+                async_protocol_delete_paragraph(sock, paragraphs, 0);
+                break;
+            case UNLOCK_PARAGRAPH_PROTOCOL_ID:
+                client_message_copy = strdup(client_message);
+                if (client_message_copy == NULL) {
+                    fprintf(stderr, "Error: memory allocation failed\n");
+                    break;
+                }
+                sync_protocol(sock, paragraphs, client_message_copy);
+                unlock_paragraph_protocol(sock, client_message);
                 break;
         }
 
@@ -65,6 +77,8 @@ void *connection_handler(void* args)
     close(sock);
     pthread_exit(NULL);
 }
+
+
 
 
 int send_file_to_client(int sock, const char *file_name)
@@ -152,8 +166,20 @@ void sync_protocol(int sock, LinkedList* paragraphs, char *client_message){
     fprintf(stderr, "SocketID: %d, ClientMessage: %s \n", sock, client_message);
     memmove(client_message, client_message + 2, strlen(client_message) - 1);
     edit_content_of_paragraph(paragraphs, paragraph_number, client_message);
-//    refresh_file(paragraphs, FILE_NAME);
-    broadcast(client_message, sock);
+    char* paragraph_content = get_content_of_paragraph(paragraphs, paragraph_number);
+
+    // Create the message
+    char message[1024];
+    snprintf(message, sizeof(message), "%d,%d,%s", SYNC_PROTOCOL_ID, paragraph_number, paragraph_content);
+
+    for(int i = 0; i < MAX_CLIENTS; i++) {
+        if(connected_sockets[i] != -1 && connected_sockets[i] != sock) {
+            send(connected_sockets[i], message, strlen(message), 0);
+            printf("SYNC Message: %s\n", message);
+        }
+    }
+    refresh_file(paragraphs, FILE_NAME);
+//    broadcast(client_message, sock);
 }
 
 
@@ -162,6 +188,10 @@ void async_protocol_new_paragraph(int sock, LinkedList* paragraphs, char* client
 //    insert_after_node_number(paragraphs, add_after, client_message);
 //    refresh_file(paragraphs, FILE_NAME);
 //    broadcast(client_message, sock);
+}
+
+void async_protocol_delete_paragraph(int sock, LinkedList* paragraphs, int paragraph_number){
+
 }
 
 void add_socket(int socket) {
@@ -192,4 +222,18 @@ void broadcast(char *message, int sender) {
             send(connected_sockets[i], message, strlen(message), 0);
         }
     }
+}
+
+void unlock_paragraph_protocol(int sock, char *client_message) {
+    // getting paragraph number
+    int paragraph_number;
+    if(sscanf(client_message, "%d", &paragraph_number) != 1) {
+        fprintf(stderr, "Error: could not parse paragraph number from message\n");
+        return;
+    }
+//    unlock_paragraph(paragraphs, paragraph_number, sock);
+//    fprintf(stderr, "SocketID: %d, ClientMessage: %s \n", sock, client_message);
+    char message[1024];
+    snprintf(message, sizeof(message), "%d,%d", UNLOCK_PARAGRAPH_PROTOCOL_ID, paragraph_number);
+    broadcast(message, sock);
 }

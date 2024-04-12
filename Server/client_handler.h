@@ -27,7 +27,9 @@ typedef struct sockaddr sockaddr;
 #define CHUNK_SIZE 1024
 #define MAX_NUMBER_SKIPPED_CHECK_INS 3
 #define SYNC_PROTOCOL_ID 1
-#define ASYNC_PROTOCOL_ADD_PARAGRAPH 2
+#define ASYNC_PROTOCOL_ADD_PARAGRAPH_ID 2
+#define ASYNC_PROTOCOL_DELETE_PARAGRAPH_ID 3
+#define UNLOCK_PARAGRAPH_PROTOCOL_ID 4
 extern int connected_sockets[MAX_CLIENTS];
 extern pthread_mutex_t connected_sockets_mutex;
 
@@ -35,7 +37,9 @@ void *connection_handler(void *socket_desc);
 int send_file_to_client(int sock, const char *file_name);
 int get_file_size(FILE *file);
 void sync_protocol(int sock, LinkedList* paragraphs, char *client_message);
+void unlock_paragraph_protocol(int sock, char* client_message);
 void async_protocol_new_paragraph(int sock, LinkedList* paragraphs, char *client_message, int insert_after);
+void async_protocol_delete_paragraph(int sock, LinkedList* paragraphs, int paragraph_number);
 void add_socket(int socket);
 void remove_socket(int socket);
 void broadcast(char *message, int sender);

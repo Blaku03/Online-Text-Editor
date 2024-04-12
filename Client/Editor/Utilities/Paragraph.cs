@@ -7,7 +7,7 @@ namespace Editor.Utilities;
 
 public class Paragraph
 {
-    internal StringBuilder Content { get; init; } = new();
+    internal StringBuilder Content { get; set; } = new();
     public bool IsLocked { get; set; }
 
     private const string LockedString = " (locked)";
@@ -56,12 +56,12 @@ public class Paragraph
                 content.Append(LockedString);
             }
 
-            if (i + 1 < paragraphs.Count)
+            // Add \n at the end of each paragraph, except the last one
+            if (i != paragraphs.Count - 1)
             {
                 content.Append('\n');
             }
         }
-
         return content.ToString();
     }
 
