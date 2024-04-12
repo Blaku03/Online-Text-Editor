@@ -175,11 +175,27 @@ public partial class Editor : Window
 
     private void Text_KeyDown(object? sender, KeyEventArgs e)
     {
+        var currentCaretLine = MainEditor.TextArea.Caret.Line;// remember current line to increment it when enter is pressed
         if (_paragraphs == null) return;
         if (IsSafeKey(e.Key)) return;
 
         _keyHandled = false;
         var caretParagraph = _paragraphs.ElementAt(CaretLine - 1);
+        
+        if (e.Key is Key.Up or Key.Down)
+        {
+            if (caretParagraph.IsLocked)
+            {
+                MainEditor.TextArea.Caret.Line += (e.Key == Key.Up) ? -1 : 1;
+                return;
+            }
+            
+            // var data = $"{SyncParagraphProtocolId},{CaretLine},{caretParagraph.Content}";
+            // var buffer = Encoding.ASCII.GetBytes(data);
+            // _socket.Send(buffer);
+            return;
+        }
+
 
         if (e.Key == Key.Enter)
         {
@@ -196,10 +212,14 @@ public partial class Editor : Window
             {
                 currentNode = currentNode.Next;
             }
+            
+            // TODO: create protocol for sending new paragraph, server must response with 'ok'
+            
 
             _paragraphs.AddAfter(currentNode!, newParagraph);
             MainEditor.Text = Paragraph.GetContent(_paragraphs);
-            MainEditor.TextArea.Caret.Line = _paragraphs.Count + 1;
+            Console.WriteLine(MainEditor.TextArea.Caret.Line);
+            MainEditor.TextArea.Caret.Line = currentCaretLine + 1;
             e.Handled = true;
             _keyHandled = true;
             return;
@@ -268,15 +288,17 @@ public partial class Editor : Window
     {
         if (_paragraphs == null) return;
         if (IsSafeKey(e.Key)) return;
+        if (e.Key is Key.Up or Key.Down) return;
         if (_keyHandled) return;
 
         // Update the content of the paragraph
         _paragraphs = Paragraph.GenerateFromText(MainEditor.Text, _paragraphs);
+        
     }
 
     private static bool IsSafeKey(Key key)
     {
         // Keys that won't change the content of the paragraph
-        return key is Key.Up or Key.Down or Key.Left or Key.Right or Key.Home or Key.End or Key.PageUp or Key.PageDown;
+        return key is Key.Left or Key.Right or Key.Home or Key.End or Key.PageUp or Key.PageDown;
     }
 }

@@ -35,6 +35,7 @@ void *connection_handler(void* args)
         int id;
         if(sscanf(client_message, "%d", &id) == 1) {
             printf("ProtocolID: %d ", id);
+            fflush(stdout);
         } else {
             fprintf(stderr, "Error: could not parse ID from message\n");
         }
@@ -46,6 +47,9 @@ void *connection_handler(void* args)
         switch (id) {
             case SYNC_PROTOCOL_ID:
                 sync_protocol(sock, paragraphs, client_message);
+                break;
+            case ASYNC_PROTOCOL_ADD_PARAGRAPH:
+                async_protocol_new_paragraph(sock, paragraphs, client_message, 1);
                 break;
         }
 
@@ -150,6 +154,14 @@ void sync_protocol(int sock, LinkedList* paragraphs, char *client_message){
     edit_content_of_paragraph(paragraphs, paragraph_number, client_message);
 //    refresh_file(paragraphs, FILE_NAME);
     broadcast(client_message, sock);
+}
+
+
+void async_protocol_new_paragraph(int sock, LinkedList* paragraphs, char* client_message, int insert_after){
+    // TODO: extract paragraph number from client message
+//    insert_after_node_number(paragraphs, add_after, client_message);
+//    refresh_file(paragraphs, FILE_NAME);
+//    broadcast(client_message, sock);
 }
 
 void add_socket(int socket) {

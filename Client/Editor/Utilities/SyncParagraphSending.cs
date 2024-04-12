@@ -23,7 +23,7 @@ public static class SyncParagraphSending
             var currentParagraph = editor.GetParagraph(currentParagraphNumber);
             var content = currentParagraph?.Content;
 
-            if (!_lastSentParagraphs.ContainsKey(currentParagraph!.Id))
+            if (!_lastSentParagraphs.ContainsKey(currentParagraph!.Id) && !currentParagraph.IsLocked)
             {
                 _lastSentParagraphs.Add(currentParagraph.Id, new StringBuilder());
             }
