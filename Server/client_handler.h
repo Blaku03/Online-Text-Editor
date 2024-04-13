@@ -30,6 +30,7 @@ typedef struct sockaddr sockaddr;
 #define ASYNC_PROTOCOL_ADD_PARAGRAPH_ID 2
 #define ASYNC_PROTOCOL_DELETE_PARAGRAPH_ID 3
 #define UNLOCK_PARAGRAPH_PROTOCOL_ID 4
+#define CHANGE_LINE_VIA_MOUSE_PROTOCOL_ID 5
 extern int connected_sockets[MAX_CLIENTS];
 extern pthread_mutex_t connected_sockets_mutex;
 
@@ -39,6 +40,7 @@ int get_file_size(FILE *file);
 void async_protocol_new_paragraph(int sock, LinkedList* paragraphs, char *client_message, int insert_after);
 void async_protocol_delete_paragraph(int sock, LinkedList* paragraphs, int paragraph_number);
 void update_paragraph_protocol(int sock, LinkedList* paragraphs, char *client_message, int protocol_id);
+void unlock_paragraph_after_mouse_press(int sock, LinkedList* paragraphs, char* client_message);
 char* create_message_with_lock_status(LinkedList* paragraphs);
 void add_socket(int socket);
 void remove_socket(int socket);

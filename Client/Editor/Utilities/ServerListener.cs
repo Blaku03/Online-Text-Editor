@@ -45,6 +45,13 @@ public static class ServerListener
                         editor.UnlockParagraph(paragraphNumber);
                         editor.UpdateParagraph(paragraphNumber, content);
                         break;
+                    case Views.Editor.ChangeLineAfterMousePress:
+                        paragraphNumber = int.Parse(metadataArray[1]);
+                        var current = editor.GetParagraph(paragraphNumber);
+                        content = new StringBuilder(current!.Content.ToString().TrimEnd('\n'));
+                        editor.UnlockParagraph(paragraphNumber);
+                        editor.UpdateParagraph(paragraphNumber, content);
+                        break;
                     case Views.Editor.AsyncDeleteParagraphProtocolId:
                         paragraphNumber = int.Parse(metadataArray[1]);
                         break;

@@ -66,6 +66,9 @@ void *connection_handler(void* args)
             case UNLOCK_PARAGRAPH_PROTOCOL_ID:
                 update_paragraph_protocol(sock, paragraphs, client_message, UNLOCK_PARAGRAPH_PROTOCOL_ID);
                 break;
+            case CHANGE_LINE_VIA_MOUSE_PROTOCOL_ID:
+                unlock_paragraph_after_mouse_press(sock, paragraphs, client_message);
+                break;
         }
 
         /* Clear the message buffer */
@@ -256,4 +259,17 @@ char* create_message_with_lock_status(LinkedList *paragraphs) {
     }
     message[strlen(message)] = '\0';
     return message;
+}
+
+void unlock_paragraph_after_mouse_press(int sock, LinkedList *paragraphs, char* client_message) {
+    int paragraph_number;
+    if(sscanf(client_message, "%d", &paragraph_number) != 1) {
+        fprintf(stderr, "Error: could not parse paragraph number from message\n");
+        return;
+    }
+    //send paragraph number to all
+    char message[1024];
+    snprintf(message, sizeof(message), "%d,%d", CHANGE_LINE_VIA_MOUSE_PROTOCOL_ID, paragraph_number);
+    unlock_paragraph(paragraphs, paragraph_number, sock);
+    broadcast(message, sock);
 }
