@@ -12,14 +12,23 @@ void *connection_handler(void* args)
     LinkedList *paragraphs = actual_args -> paragraphs;
 
     int read_size;
-    char *message, *client_message_copy, client_message[CHUNK_SIZE];
+    char client_message[CHUNK_SIZE];
 
-    add_socket(sock);
 
     if (send_file_to_client(sock, file_name) < 0)
     {
         fprintf(stderr, "Error: sending file failed\n");
     }
+
+    // sending information which paragraphs are locked when client connects
+    char* locked_paragraphs_message = create_message_with_lock_status(paragraphs);
+    send(sock, locked_paragraphs_message, strlen(locked_paragraphs_message), 0);
+    recv(sock, client_message, sizeof(client_message), 0);
+    if (strcmp(client_message, "OK") != 0){
+        fprintf(stderr, "Error: client response not OK\n");
+    }
+
+    add_socket(sock); //adding socket to connected_sockets array
 
     do
     {
@@ -32,21 +41,21 @@ void *connection_handler(void* args)
         }
 
         //reading protocol id
-        int id;
-        if(sscanf(client_message, "%d", &id) == 1) {
-            printf("ProtocolID: %d ", id);
-            fflush(stdout);
+        int protocol_id;
+        if(sscanf(client_message, "%d", &protocol_id) == 1) {
+//            printf("ProtocolID: %d ", id);
+//            fflush(stdout);
         } else {
             fprintf(stderr, "Error: could not parse ID from message\n");
         }
 
-        //deleting id from client message
+        //deleting protocol_id from client message
         memmove(client_message, client_message + 2, strlen(client_message) - 1);
 
 
-        switch (id) {
+        switch (protocol_id) {
             case SYNC_PROTOCOL_ID:
-                sync_protocol(sock, paragraphs, client_message);
+                update_paragraph_protocol(sock, paragraphs, client_message, SYNC_PROTOCOL_ID);
                 break;
             case ASYNC_PROTOCOL_ADD_PARAGRAPH_ID:
                 async_protocol_new_paragraph(sock, paragraphs, client_message, 1);
@@ -55,30 +64,23 @@ void *connection_handler(void* args)
                 async_protocol_delete_paragraph(sock, paragraphs, 0);
                 break;
             case UNLOCK_PARAGRAPH_PROTOCOL_ID:
-                client_message_copy = strdup(client_message);
-                if (client_message_copy == NULL) {
-                    fprintf(stderr, "Error: memory allocation failed\n");
-                    break;
-                }
-                sync_protocol(sock, paragraphs, client_message_copy);
-                unlock_paragraph_protocol(sock, client_message);
+                update_paragraph_protocol(sock, paragraphs, client_message, UNLOCK_PARAGRAPH_PROTOCOL_ID);
                 break;
         }
-
 
         /* Clear the message buffer */
         memset(client_message, 0, CHUNK_SIZE);
     } while (1);
 
+    unlock_paragraph_with_socket_id(paragraphs, sock);
     fprintf(stderr, "Client disconnected\n");
 
     // Free the socket pointer
-    remove_socket(sock);
+    // TODO: create protocol to unlock paragraph with socket_id when disconnecting
+    remove_socket(sock); // remove socket from connected_sockets array
     close(sock);
     pthread_exit(NULL);
 }
-
-
 
 
 int send_file_to_client(int sock, const char *file_name)
@@ -156,30 +158,32 @@ int get_file_size(FILE *file)
     return size;
 }
 
-void sync_protocol(int sock, LinkedList* paragraphs, char *client_message){
+void update_paragraph_protocol(int sock, LinkedList* paragraphs, char *client_message, int protocol_id){
     // getting paragraph number
     int paragraph_number;
     if(sscanf(client_message, "%d", &paragraph_number) != 1) {
         fprintf(stderr, "Error: could not parse paragraph number from message\n");
         return;
     }
-    fprintf(stderr, "SocketID: %d, ClientMessage: %s \n", sock, client_message);
+    switch (protocol_id) {
+        case SYNC_PROTOCOL_ID:
+            lock_paragraph(paragraphs,paragraph_number, sock);
+            break;
+        case UNLOCK_PARAGRAPH_PROTOCOL_ID:
+            unlock_paragraph(paragraphs,paragraph_number, sock);
+            break;
+    }
     memmove(client_message, client_message + 2, strlen(client_message) - 1);
     edit_content_of_paragraph(paragraphs, paragraph_number, client_message);
     char* paragraph_content = get_content_of_paragraph(paragraphs, paragraph_number);
 
     // Create the message
     char message[1024];
-    snprintf(message, sizeof(message), "%d,%d,%s", SYNC_PROTOCOL_ID, paragraph_number, paragraph_content);
-
-    for(int i = 0; i < MAX_CLIENTS; i++) {
-        if(connected_sockets[i] != -1 && connected_sockets[i] != sock) {
-            send(connected_sockets[i], message, strlen(message), 0);
-            printf("SYNC Message: %s\n", message);
-        }
-    }
+    snprintf(message, sizeof(message), "%d,%d,%s", protocol_id, paragraph_number, paragraph_content);
+    fprintf(stderr, "SocketID: %d, ClientMessage: %s \n", sock, message);
+    fflush(stdout);
     refresh_file(paragraphs, FILE_NAME);
-//    broadcast(client_message, sock);
+    broadcast(message, sock);
 }
 
 
@@ -224,16 +228,32 @@ void broadcast(char *message, int sender) {
     }
 }
 
-void unlock_paragraph_protocol(int sock, char *client_message) {
-    // getting paragraph number
-    int paragraph_number;
-    if(sscanf(client_message, "%d", &paragraph_number) != 1) {
-        fprintf(stderr, "Error: could not parse paragraph number from message\n");
-        return;
+char* create_message_with_lock_status(LinkedList *paragraphs) {
+    Node* temp = paragraphs->head;
+    int current_number = 1;
+    char* message = malloc(1);
+    message[0] = '\0';
+
+    while (temp != NULL) {
+        if (temp->locked == 1) {
+            char number[10];
+            sprintf(number, "%d,", current_number);
+            message = realloc(message, strlen(message) + strlen(number) + 1);
+            strcat(message, number);
+        }
+        temp = temp->next;
+        current_number++;
     }
-//    unlock_paragraph(paragraphs, paragraph_number, sock);
-//    fprintf(stderr, "SocketID: %d, ClientMessage: %s \n", sock, client_message);
-    char message[1024];
-    snprintf(message, sizeof(message), "%d,%d", UNLOCK_PARAGRAPH_PROTOCOL_ID, paragraph_number);
-    broadcast(message, sock);
+
+    // if it's first client, all paragraphs will be unlocked so return 0
+    if(strcmp(message, "") == 0) {
+        strcat(message, "0");
+    }
+    else{
+        // adding '0' to indicate end of message if some paragraphs are locked
+        message = realloc(message, strlen(message) + 2);
+        strcat(message, "0");
+    }
+    message[strlen(message)] = '\0';
+    return message;
 }

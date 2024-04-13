@@ -50,10 +50,15 @@ public class Paragraph
         for (int i = 0; i < paragraphs.Count; i++)
         {
             var currentParagraph = paragraphs.ElementAt(i);
-            content.Append(currentParagraph.Content);
             if (currentParagraph.IsLocked && !currentParagraph.Content.ToString().EndsWith(LockedString))
             {
-                content.Append(LockedString);
+                var contentWithLock = new StringBuilder(currentParagraph.Content.ToString().TrimEnd('\n'));
+                contentWithLock.Append(LockedString);
+                content.Append(contentWithLock);
+            }
+            else
+            {
+                content.Append(currentParagraph.Content);
             }
 
             // Add \n at the end of each paragraph, except the last one

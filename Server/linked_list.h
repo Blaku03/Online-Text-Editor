@@ -5,9 +5,9 @@
 #include <stdio.h>
 
 typedef struct Node {
-    char *content; // Paragraph content
-    int locked; // 0 if not locked, 1 if locked
-    int socket_id; // ID of the socket that has locked the paragraph
+    char *content;
+    int locked;
+    int socket_id;
     struct Node* next;
     struct Node* previous;
 } Node;
@@ -34,6 +34,7 @@ void unlock_paragraph(LinkedList *list, int paragraph_number, int socket_id);
 void parse_file_to_linked_list(LinkedList* list, const char *file_name);
 void free_linked_list(LinkedList* list);
 char* get_content_of_paragraph(LinkedList* list, int paragraph_number);
+void unlock_paragraph_with_socket_id(LinkedList* list, int socket_id);
 
 
 #endif //SERVER_LINKED_LIST_H

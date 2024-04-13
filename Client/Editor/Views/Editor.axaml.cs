@@ -84,6 +84,26 @@ public partial class Editor : Window
         }
 
         Paragraphs = Paragraph.GenerateFromText(fileContent.ToString());
+        
+        // Initial lock protocol 
+        // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
+        var lockMessage = new byte[1024];
+        await _socket.ReceiveAsync(lockMessage);
+        if (lockMessage[0] != '0')
+        {
+            var lockMessageString = Encoding.ASCII.GetString(lockMessage);
+            var lockMessageArray = lockMessageString.Split(',');
+
+            foreach (var j in lockMessageArray)
+            {
+                if (int.Parse(j) == 0) break;
+                var paragraphNumber = int.Parse(j);
+                LockParagraph(paragraphNumber);
+            }
+        }
+        await _socket.SendAsync(Encoding.ASCII.GetBytes("OK"));
+        
+        
         // Paragraphs.ElementAt(1).IsLocked = true;
         OpenFileInEditor();
         
@@ -191,6 +211,7 @@ public partial class Editor : Window
             if (caretParagraph.IsLocked)
             {
                 MainEditor.TextArea.Caret.Line += (e.Key == Key.Up) ? -1 : 1;
+                e.Handled = true;
                 return;
             }
             
@@ -284,21 +305,7 @@ public partial class Editor : Window
 
     public void LockParagraph(int paragraphNumber)
     {
-        var paragraphNode = Paragraphs!.First;
-        for (int i = 0; i < paragraphNumber - 1 && paragraphNode != null; i++)
-        {
-            paragraphNode = paragraphNode.Next;
-        }
-
-        if (paragraphNode != null)
-        {
-            paragraphNode.Value.IsLocked = true;
-            var caretCopyLine = MainEditor.TextArea.Caret.Line;
-            var caretCopyColumn = MainEditor.TextArea.Caret.Column;
-            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(Refresh);
-            MainEditor.TextArea.Caret.Line = caretCopyLine;
-            MainEditor.TextArea.Caret.Column = caretCopyColumn;
-        }
+        Paragraphs!.ElementAt(paragraphNumber - 1).IsLocked = true;
     }
     
     
@@ -315,35 +322,25 @@ public partial class Editor : Window
         if (IsSafeKey(e.Key)) return;
         if (e.Key is Key.Up or Key.Down) return;
         if (_keyHandled) return;
-
+        
         // Update the content of the paragraph
         Paragraphs = Paragraph.GenerateFromText(MainEditor.Text, Paragraphs);
-        
     }
 
-
-    public void Refresh()
+    private void Refresh()
     {
-        MainEditor.Text = Paragraph.GetContent(Paragraphs);
-    }
-    
-    public void UpdateParagraph(int paragraphNumber, string newContent)
-    {
-        if (Paragraphs == null) return;
-
-        var paragraphNode = Paragraphs.First;
-        for (int i = 0; i < paragraphNumber - 1 && paragraphNode != null; i++)
-        {
-            paragraphNode = paragraphNode.Next;
-        }
-
-        if (paragraphNode == null) return;
-        paragraphNode.Value.Content = new StringBuilder(newContent);
         var caretCopyLine = MainEditor.TextArea.Caret.Line;
         var caretCopyColumn = MainEditor.TextArea.Caret.Column;
-        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(Refresh);
+        MainEditor.Text = Paragraph.GetContent(Paragraphs);
         MainEditor.TextArea.Caret.Line = caretCopyLine;
         MainEditor.TextArea.Caret.Column = caretCopyColumn;
+    }
+    
+    public void UpdateParagraph(int paragraphNumber, StringBuilder newContent)
+    {
+        Paragraphs!.ElementAt(paragraphNumber - 1).Content = newContent;
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(Refresh); //Refresh method needs to be called from main UIThread
+
     }
 
     private static bool IsSafeKey(Key key)
@@ -354,20 +351,6 @@ public partial class Editor : Window
 
     public void UnlockParagraph(int paragraphNumber)
     {
-        var paragraphNode = Paragraphs!.First;
-        for (int i = 0; i < paragraphNumber - 1 && paragraphNode != null; i++)
-        {
-            paragraphNode = paragraphNode.Next;
-        }
-
-        if (paragraphNode != null)
-        {
-            paragraphNode.Value.IsLocked = false;
-            var caretCopyLine = MainEditor.TextArea.Caret.Line;
-            var caretCopyColumn = MainEditor.TextArea.Caret.Column;
-            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(Refresh);
-            MainEditor.TextArea.Caret.Line = caretCopyLine;
-            MainEditor.TextArea.Caret.Column = caretCopyColumn;
-        }
+        Paragraphs!.ElementAt(paragraphNumber - 1).IsLocked = false;
     }
 }

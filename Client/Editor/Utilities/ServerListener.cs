@@ -1,5 +1,6 @@
 using System;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,6 +10,7 @@ public static class ServerListener
 {
     public static async Task ListenServer(Socket socketToListen, Views.Editor editor, CancellationToken cancellationToken)
     {
+    
         while (true)
         {
             if (cancellationToken.IsCancellationRequested)
@@ -19,33 +21,46 @@ public static class ServerListener
             var bytesRead = await socketToListen.ReceiveAsync(new ArraySegment<byte>(buffer), SocketFlags.None);
             var message = System.Text.Encoding.ASCII.GetString(buffer, 0, bytesRead);
             Console.WriteLine($"Received message: {message}");
-            var metadataArray = message.Split(',');
-            var protocolId = int.Parse(metadataArray[0]);
-
-            switch (protocolId)
+            try
             {
-                case Views.Editor.SyncParagraphProtocolId:
-                    var paragraphNumber = int.Parse(metadataArray[1]);
-                    var paragraphContent = metadataArray[2];
-                    Console.WriteLine($"Received paragraph {paragraphNumber} with content: {paragraphContent}");
-                    editor.UpdateParagraph(paragraphNumber, paragraphContent);
-                    editor.LockParagraph(paragraphNumber);
-                    break;
-                case Views.Editor.UnlockParagraphProtocolId:
-                    paragraphNumber = int.Parse(metadataArray[1]);
-                    Console.WriteLine($"Received unlock paragraph {paragraphNumber}");
-                    editor.UnlockParagraph(paragraphNumber);
-                    break;
-                case Views.Editor.AsyncDeleteParagraphProtocolId:
-                    paragraphNumber = int.Parse(metadataArray[1]);
-                    break;
-                case Views.Editor.AsyncNewParagraphProtocolId:
-                    var newParagraphNumber = int.Parse(metadataArray[1]);
-                    var newParagraphContent = metadataArray[2];
-                    break;
+                var metadataArray = message.Split(',');
+                var protocolId = int.Parse(metadataArray[0]);
+                string? paragraphContent;
+                StringBuilder? content;
+                switch (protocolId)
+                {
+                    case Views.Editor.SyncParagraphProtocolId:
+                        var paragraphNumber = int.Parse(metadataArray[1]);
+                        paragraphContent = metadataArray[2];
+                        content = new StringBuilder(paragraphContent);
+                        Console.WriteLine($"Received paragraph {paragraphNumber} with content: {paragraphContent}");
+                        editor.LockParagraph(paragraphNumber);
+                        editor.UpdateParagraph(paragraphNumber, content);
+                        break;
+                    case Views.Editor.UnlockParagraphProtocolId:
+                        paragraphNumber = int.Parse(metadataArray[1]);
+                        paragraphContent = metadataArray[2];
+                        content = new StringBuilder(paragraphContent.TrimEnd('\n'));
+                        Console.WriteLine($"Received unlock paragraph {paragraphNumber}");
+                        editor.UnlockParagraph(paragraphNumber);
+                        editor.UpdateParagraph(paragraphNumber, content);
+                        break;
+                    case Views.Editor.AsyncDeleteParagraphProtocolId:
+                        paragraphNumber = int.Parse(metadataArray[1]);
+                        break;
+                    case Views.Editor.AsyncNewParagraphProtocolId:
+                        var newParagraphNumber = int.Parse(metadataArray[1]);
+                        var newParagraphContent = metadataArray[2];
+                        break;
+                }
+                
+            }
+            catch (Exception e)
+            {
+                // ignored
             }
 
-            Console.WriteLine($"Received message: {message}");
+
         }
     }
 }
