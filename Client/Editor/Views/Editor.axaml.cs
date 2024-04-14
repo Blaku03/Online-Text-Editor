@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
@@ -24,17 +23,20 @@ public partial class Editor : Window
     private int CaretColumn => MainEditor.TextArea.Caret.Column;
     private bool _keyHandled;
 
-    public const int SyncParagraphProtocolId = 1;
-    public const int AsyncDeleteParagraphProtocolId = 2;
-    public const int AsyncNewParagraphProtocolId = 3;
-    public const int UnlockParagraphProtocolId = 4;
-    public const int ChangeLineAfterMousePress = 5;
-    
+    public enum ProtocolId
+    {
+        SyncParagraph = 1,
+        AsyncDeleteParagraph,
+        AsyncNewParagraph,
+        UnlockParagraph,
+        ChangeLineAfterMousePress
+    }
+
 
     //flags for stopping thread's tasks
     private readonly CancellationTokenSource _cancellationTokenForSyncParagraphSending = new();
     private readonly CancellationTokenSource _cancellationTokenForServerListener = new();
-    
+
 
     public Editor(Socket socket)
     {
@@ -43,8 +45,9 @@ public partial class Editor : Window
         GetFileFromServer();
         MainEditor.AddHandler(InputElement.KeyDownEvent, Text_KeyDown, RoutingStrategies.Tunnel);
         MainEditor.AddHandler(InputElement.KeyUpEvent, Text_KeyUp, RoutingStrategies.Tunnel);
-        MainEditor.TextArea.AddHandler(InputElement.PointerPressedEvent, TextArea_PointerPressed, RoutingStrategies.Tunnel);
-        
+        MainEditor.TextArea.AddHandler(InputElement.PointerPressedEvent, TextArea_PointerPressed,
+            RoutingStrategies.Tunnel);
+
         // Disable selection of text
         MainEditor.AddHandler(InputElement.PointerMovedEvent,
             (sender, e) => { MainEditor.TextArea.Selection = Selection.Create(MainEditor.TextArea, 0, 0); },
@@ -86,7 +89,7 @@ public partial class Editor : Window
         }
 
         Paragraphs = Paragraph.GenerateFromText(fileContent.ToString());
-        
+
         // Initial lock protocol 
         // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
         var lockMessage = new byte[1024];
@@ -103,25 +106,27 @@ public partial class Editor : Window
                 LockParagraph(paragraphNumber);
             }
         }
+
         await _socket.SendAsync(Encoding.ASCII.GetBytes("OK"));
-        
+
         OpenFileInEditor();
-        
+
         // starting thread for sync sending paragraphs to the server
         Thread synchronousParagraphSending = new(() =>
         {
             try
             {
-                SyncParagraphSending.SendDataToTheServer(_socket, this, _cancellationTokenForSyncParagraphSending.Token).Wait();
+                SyncParagraphSending.SendDataToTheServer(_socket, this, _cancellationTokenForSyncParagraphSending.Token)
+                    .Wait();
             }
             catch (Exception ex)
             {
                 // ignored because it raises exception when the thread is stopped by the token
             }
         });
-        
+
         synchronousParagraphSending.Start();
-        
+
         Thread serverListener = new(() =>
         {
             try
@@ -136,7 +141,7 @@ public partial class Editor : Window
 
         serverListener.Start();
     }
-    
+
     public Paragraph? GetParagraph(int line)
     {
         return Paragraphs?.ElementAt(line - 1);
@@ -185,12 +190,12 @@ public partial class Editor : Window
         await DisconnectFromServer();
         Close();
     }
-    
-    
+
+
     private void TextArea_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         //protocol for unlocking paragraph when line is switched by mouse
-        var data = $"{ChangeLineAfterMousePress},{MainEditor.TextArea.Caret.Line}";
+        var data = $"{(int)ProtocolId.ChangeLineAfterMousePress},{MainEditor.TextArea.Caret.Line}";
         var buffer = Encoding.ASCII.GetBytes(data);
         _socket.Send(buffer);
     }
@@ -207,13 +212,14 @@ public partial class Editor : Window
 
     private void Text_KeyDown(object? sender, KeyEventArgs e)
     {
-        var currentCaretLine = MainEditor.TextArea.Caret.Line;// remember current line to increment it when enter is pressed
+        var currentCaretLine =
+            MainEditor.TextArea.Caret.Line; // remember current line to increment it when enter is pressed
         if (Paragraphs == null) return;
         if (IsSafeKey(e.Key)) return;
 
         _keyHandled = false;
         var caretParagraph = Paragraphs.ElementAt(CaretLine - 1);
-        
+
         if (e.Key is Key.Up or Key.Down)
         {
             if (caretParagraph.IsLocked)
@@ -222,8 +228,8 @@ public partial class Editor : Window
                 e.Handled = true;
                 return;
             }
-            
-            var data = $"{UnlockParagraphProtocolId},{CaretLine},{caretParagraph.Content}\n";
+
+            var data = $"{(int)ProtocolId.UnlockParagraph},{CaretLine},{caretParagraph.Content}\n";
             var buffer = Encoding.ASCII.GetBytes(data);
             _socket.Send(buffer);
             return;
@@ -245,9 +251,9 @@ public partial class Editor : Window
             {
                 currentNode = currentNode.Next;
             }
-            
+
             // TODO: create protocol for sending new paragraph, server must response with 'ok'
-            
+
 
             Paragraphs.AddAfter(currentNode!, newParagraph);
             MainEditor.Text = Paragraph.GetContent(Paragraphs);
@@ -315,8 +321,8 @@ public partial class Editor : Window
     {
         Paragraphs!.ElementAt(paragraphNumber - 1).IsLocked = true;
     }
-    
-    
+
+
     //handling closing window by 'x'
     protected override async void OnClosing(WindowClosingEventArgs e)
     {
@@ -330,12 +336,12 @@ public partial class Editor : Window
         if (IsSafeKey(e.Key)) return;
         if (e.Key is Key.Up or Key.Down) return;
         if (_keyHandled) return;
-        
+
         // Update the content of the paragraph
         Paragraphs = Paragraph.GenerateFromText(MainEditor.Text, Paragraphs);
     }
 
-    public void Refresh()
+    private void Refresh()
     {
         var caretCopyLine = MainEditor.TextArea.Caret.Line;
         var caretCopyColumn = MainEditor.TextArea.Caret.Column;
@@ -343,12 +349,12 @@ public partial class Editor : Window
         MainEditor.TextArea.Caret.Line = caretCopyLine;
         MainEditor.TextArea.Caret.Column = caretCopyColumn;
     }
-    
+
     public void UpdateParagraph(int paragraphNumber, StringBuilder newContent)
     {
         Paragraphs!.ElementAt(paragraphNumber - 1).Content = newContent;
-        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(Refresh); //Refresh method needs to be called from main UIThread
-
+        Avalonia.Threading.Dispatcher.UIThread
+            .InvokeAsync(Refresh); //Refresh method needs to be called from main UIThread
     }
 
     private static bool IsSafeKey(Key key)

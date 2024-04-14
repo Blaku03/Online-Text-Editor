@@ -9,8 +9,10 @@ namespace Editor.Utilities;
 
 public static class SyncParagraphSending
 {
-    private static Dictionary<Guid, StringBuilder?> _lastSentParagraphs = new();
-    public static async Task SendDataToTheServer(Socket socketToListen, Views.Editor editor, CancellationToken cancellationToken)
+    private static readonly Dictionary<Guid, StringBuilder?> LastSentParagraphs = new();
+
+    public static async Task SendDataToTheServer(Socket socketToListen, Views.Editor editor,
+        CancellationToken cancellationToken)
     {
         while (true)
         {
@@ -18,26 +20,28 @@ public static class SyncParagraphSending
             {
                 break;
             }
-            
+
             var currentParagraphNumber = editor.GetCaretLine();
             var currentParagraph = editor.GetParagraph(currentParagraphNumber);
             var content = currentParagraph?.Content;
 
-            if (!_lastSentParagraphs.ContainsKey(currentParagraph!.Id) && !currentParagraph.IsLocked)
+            if (!LastSentParagraphs.ContainsKey(currentParagraph!.Id) && !currentParagraph.IsLocked)
             {
-                _lastSentParagraphs.Add(currentParagraph.Id, new StringBuilder());
+                LastSentParagraphs.Add(currentParagraph.Id, new StringBuilder());
             }
-            
-            if (!currentParagraph.IsLocked) 
+
+            if (!currentParagraph.IsLocked)
             {
-                if (!_lastSentParagraphs[currentParagraph.Id]!.Equals(content))
+                if (!LastSentParagraphs[currentParagraph.Id]!.Equals(content))
                 {
                     var modifiedContent = content! + "\n";
-                    var data = $"{Views.Editor.SyncParagraphProtocolId},{currentParagraphNumber},{modifiedContent}";
+                    var data =
+                        $"{(int)Views.Editor.ProtocolId.SyncParagraph},{currentParagraphNumber},{modifiedContent}";
                     await socketToListen.SendAsync(Encoding.ASCII.GetBytes(data));
-                    _lastSentParagraphs[currentParagraph.Id] = content;
+                    LastSentParagraphs[currentParagraph.Id] = content;
                 }
             }
+
             await Task.Delay(500, cancellationToken);
         }
     }

@@ -12,7 +12,6 @@ typedef struct Node {
     struct Node* previous;
 } Node;
 
-
 typedef struct LinkedList {
     Node* head;
     Node* tail;
@@ -37,4 +36,4 @@ char* get_content_of_paragraph(LinkedList* list, int paragraph_number);
 void unlock_paragraph_with_socket_id(LinkedList* list, int socket_id);
 
 
-#endif //SERVER_LINKED_LIST_H
+#endif//SERVER_LINKED_LIST_H
