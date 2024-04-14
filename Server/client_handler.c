@@ -35,6 +35,7 @@ void *connection_handler(void* args)
         read_size = recv(sock, client_message, CHUNK_SIZE, 0);
         client_message[read_size] = '\0';
 
+
         //when client disconnects
         if(read_size == 0){
             break;
@@ -76,10 +77,10 @@ void *connection_handler(void* args)
     } while (1);
 
     unlock_paragraph_with_socket_id(paragraphs, sock);
+    // TODO: create protocol to unlock paragraph with socket_id when disconnecting
     fprintf(stderr, "Client disconnected\n");
 
     // Free the socket pointer
-    // TODO: create protocol to unlock paragraph with socket_id when disconnecting
     remove_socket(sock); // remove socket from connected_sockets array
     close(sock);
     pthread_exit(NULL);
@@ -117,14 +118,14 @@ int send_file_to_client(int sock, const char *file_name)
     // file_name_wo_extension[file_name_size] = '\0';
 
     // Send metadata to the client
-    char metadata[1024];
+    char metadata[KILOBYTE];
     snprintf(metadata, sizeof(metadata), "%d,%d", get_file_size(file), CHUNK_SIZE);
     send(sock, metadata, sizeof(metadata), 0);
     // printf("Metadata: %s\n", metadata);
     // free(file_name_wo_extension);
 
     // Waiting for confirmation from client
-    char client_response[1024];
+    char client_response[KILOBYTE];
     recv(sock, client_response, sizeof(client_response), 0);
 
     if (strcmp(client_response, "OK") != 0)
@@ -181,7 +182,7 @@ void update_paragraph_protocol(int sock, LinkedList* paragraphs, char *client_me
     char* paragraph_content = get_content_of_paragraph(paragraphs, paragraph_number);
 
     // Create the message
-    char message[1024];
+    char message[KILOBYTE];
     snprintf(message, sizeof(message), "%d,%d,%s", protocol_id, paragraph_number, paragraph_content);
     fprintf(stderr, "SocketID: %d, ClientMessage: %s \n", sock, message);
     fflush(stdout);
@@ -239,10 +240,10 @@ char* create_message_with_lock_status(LinkedList *paragraphs) {
 
     while (temp != NULL) {
         if (temp->locked == 1) {
-            char number[10];
+            char number[KILOBYTE];
             sprintf(number, "%d,", current_number);
             message = realloc(message, strlen(message) + strlen(number) + 1);
-            strcat(message, number);
+            strncat(message, number, KILOBYTE -  strlen(message) - 1);
         }
         temp = temp->next;
         current_number++;
@@ -250,12 +251,12 @@ char* create_message_with_lock_status(LinkedList *paragraphs) {
 
     // if it's first client, all paragraphs will be unlocked so return 0
     if(strcmp(message, "") == 0) {
-        strcat(message, "0");
+        strncat(message, "0", KILOBYTE -  strlen(message) - 1);
     }
     else{
         // adding '0' to indicate end of message if some paragraphs are locked
         message = realloc(message, strlen(message) + 2);
-        strcat(message, "0");
+        strncat(message, "0", KILOBYTE - strlen(message) - 1);
     }
     message[strlen(message)] = '\0';
     return message;
@@ -268,7 +269,7 @@ void unlock_paragraph_after_mouse_press(int sock, LinkedList *paragraphs, char* 
         return;
     }
     //send paragraph number to all
-    char message[1024];
+    char message[KILOBYTE];
     snprintf(message, sizeof(message), "%d,%d", CHANGE_LINE_VIA_MOUSE_PROTOCOL_ID, paragraph_number);
     unlock_paragraph(paragraphs, paragraph_number, sock);
     broadcast(message, sock);

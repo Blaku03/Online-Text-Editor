@@ -31,6 +31,7 @@ typedef struct sockaddr sockaddr;
 #define ASYNC_PROTOCOL_DELETE_PARAGRAPH_ID 3
 #define UNLOCK_PARAGRAPH_PROTOCOL_ID 4
 #define CHANGE_LINE_VIA_MOUSE_PROTOCOL_ID 5
+#define KILOBYTE 1024
 extern int connected_sockets[MAX_CLIENTS];
 extern pthread_mutex_t connected_sockets_mutex;
 
