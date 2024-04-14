@@ -24,9 +24,10 @@ public partial class Editor : Window
 {
     private readonly Socket _socket;
     private LinkedList<Paragraph>? Paragraphs { get; set; }
-    private int CaretLine => MainEditor.TextArea.Caret.Line;
+    public int CaretLine => MainEditor.TextArea.Caret.Line;
     private int CaretColumn => MainEditor.TextArea.Caret.Column;
     private bool _keyHandled;
+    private bool _isDisconnected;
 
     public enum ProtocolId
     {
@@ -156,7 +157,6 @@ public partial class Editor : Window
         return Paragraphs?.ElementAt(line - 1);
     }
 
-    public int GetCaretLine() => CaretLine;
 
     private async Task DisconnectFromServer()
     {
@@ -164,11 +164,12 @@ public partial class Editor : Window
         {
             if (_socket.Connected)
             {
-                _cancellationTokenForServerListener.CancelAsync();
-                _cancellationTokenForSyncParagraphSending.CancelAsync();
+                await _cancellationTokenForServerListener.CancelAsync();
+                await _cancellationTokenForSyncParagraphSending.CancelAsync();
                 Paragraphs = null;
                 _socket.Shutdown(SocketShutdown.Both);
                 _socket.Close();
+                _isDisconnected = true;
                 await MessageBoxManager.GetMessageBoxStandard(
                     "Success", "Disconnected from server").ShowWindowAsync();
             }
@@ -256,7 +257,6 @@ public partial class Editor : Window
             for (int i = 0; i < CaretLine - 1 && currentNode != null; i++)
             {
                 currentNode = currentNode.Next;
-                counter++;
             }
 
             // TODO: create protocol for sending new paragraph, server must response with 'ok'
@@ -333,7 +333,7 @@ public partial class Editor : Window
     //handling closing window by 'x'
     protected override async void OnClosing(WindowClosingEventArgs e)
     {
-        await DisconnectFromServer();
+        if (!_isDisconnected) await DisconnectFromServer();
         base.OnClosing(e);
     }
 
@@ -392,7 +392,7 @@ public partial class Editor : Window
 
         if (userGrid == null)
         {
-            // Weird if it happends but just in case
+            // Weird if it happens but just in case
             return;
         }
 
@@ -435,225 +435,93 @@ public partial class Editor : Window
 
         LockIndicatorsPanel.Children.Add(grid);
     }
-    
+
     private async void Save_OnClick(object sender, RoutedEventArgs e)
     {
-        if (_paragraphs == null)
+        if (Paragraphs == null)
         {
             await MessageBoxManager.GetMessageBoxStandard("Error", "No content to save.").ShowWindowAsync();
             return;
         }
-        
-        var saveFileDialog = new SaveFileDialog();
-        saveFileDialog.Title = "Save File";
-        saveFileDialog.Filters = new List<FileDialogFilter> { new FileDialogFilter { Name = "Text Files", Extensions = { "txt" } } };
+
+        var saveFileDialog = new SaveFileDialog
+        {
+            Title = "Save File",
+            Filters = [new FileDialogFilter() { Name = "Text Files", Extensions = { "txt" } }]
+        };
 
         var result = await saveFileDialog.ShowAsync(this);
         if (result != null)
         {
             try
             {
-                using (var writer = new StreamWriter(result))
+                await using (var writer = new StreamWriter(result))
                 {
-                    foreach (var paragraph in _paragraphs)
+                    foreach (var paragraph in Paragraphs)
                     {
                         await writer.WriteAsync(paragraph.Content.ToString());
                         await writer.WriteLineAsync();
                     }
                 }
+
                 await MessageBoxManager.GetMessageBoxStandard("Success", "File saved successfully.").ShowWindowAsync();
             }
             catch (Exception ex)
             {
-                await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to save file: {ex.Message}").ShowWindowAsync();
+                await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to save file: {ex.Message}")
+                    .ShowWindowAsync();
             }
         }
     }
 
     private async void Open_OnClick(object sender, RoutedEventArgs e)
     {
-        var openFileDialog = new OpenFileDialog();
-        openFileDialog.Title = "Open File";
-        openFileDialog.Filters = new List<FileDialogFilter> { new FileDialogFilter { Name = "Text Files", Extensions = { "txt" } } };
+        var openFileDialog = new OpenFileDialog
+        {
+            Title = "Open File",
+            Filters = [new FileDialogFilter() { Name = "Text Files", Extensions = { "txt" } }]
+        };
 
         var result = await openFileDialog.ShowAsync(this);
-        if (result != null && result.Length > 0)
+        if (result is { Length: > 0 })
         {
             var filePath = result[0]; // first argument is the file path
             try
             {
-                using (var stream = File.OpenRead(filePath))
-                using (var reader = new StreamReader(stream))
-                {
-                    var fileContent = await reader.ReadToEndAsync();
-                    fileContent = fileContent.Replace("\r\n", "\n");
-                    _paragraphs = Paragraph.GenerateFromText(fileContent);
-                    OpenFileInEditor();
-                    await MessageBoxManager.GetMessageBoxStandard("Success", "File opened successfully.").ShowWindowAsync();
-                }
+                await using var stream = File.OpenRead(filePath);
+                using var reader = new StreamReader(stream);
+                var fileContent = await reader.ReadToEndAsync();
+                fileContent = fileContent.Replace("\r\n", "\n");
+                Paragraphs = Paragraph.GenerateFromText(fileContent);
+                OpenFileInEditor();
+                await MessageBoxManager.GetMessageBoxStandard("Success", "File opened successfully.")
+                    .ShowWindowAsync();
             }
             catch (Exception ex)
             {
-                await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to open file: {ex.Message}").ShowWindowAsync();
+                await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to open file: {ex.Message}")
+                    .ShowWindowAsync();
             }
         }
     }
+
     private async void New_OnClick(object sender, RoutedEventArgs e)
     {
         var box = MessageBoxManager.GetMessageBoxStandard("", "Are you sure you want to open a new file?",
             ButtonEnum.YesNo);
         var result = await box.ShowAsync();
         if (result != ButtonResult.Yes) return;
-        try {
-            _paragraphs = new LinkedList<Paragraph>();
-            _paragraphs.AddLast(new Paragraph { Content = new StringBuilder() });
+        try
+        {
+            Paragraphs = new LinkedList<Paragraph>();
+            Paragraphs.AddLast(new Paragraph { Content = new StringBuilder() });
             OpenFileInEditor();
             await MessageBoxManager.GetMessageBoxStandard("Success", "New empty file was created.").ShowWindowAsync();
         }
         catch (Exception ex)
         {
-            await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to load a new file: {ex.Message}").ShowWindowAsync();
-        }
-    }
-
-    private void SetLockUserLine(string userName, int columnNumber)
-    {
-        // Find the Grid for the user
-        Grid? userGrid = null;
-        foreach (var control in LockIndicatorsPanel.Children)
-        {
-            var grid = (Grid?)control;
-            var textBlock = grid?.Children.OfType<TextBlock>().FirstOrDefault();
-            if (textBlock != null && textBlock.Text == userName)
-            {
-                userGrid = grid;
-                break;
-            }
-        }
-
-        if (userGrid == null)
-        {
-            // Weird if it happends but just in case
-            return;
-        }
-
-        // Calculate the new position
-        double lineHeight = MainEditor.TextArea.TextView.DefaultLineHeight;
-        double yPosition = lineHeight * (columnNumber - 1);
-
-        // Update the position of the Grid
-        userGrid.Margin = new Thickness(0, yPosition, 0, 0);
-    }
-
-    private void AddLockUser(string userName, ISolidColorBrush color)
-    {
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        var textBlock = new TextBlock
-        {
-            Text = userName,
-            FontFamily = new FontFamily("Cascadia Code,Consolas,Menlo,Monospace"),
-            Foreground = Brushes.RoyalBlue,
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
-        };
-        Grid.SetColumn(textBlock, 0);
-
-        var ellipse = new Ellipse
-        {
-            Width = 15,
-            Height = 15,
-            Fill = color,
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
-        };
-        Grid.SetColumn(ellipse, 1);
-
-        grid.Children.Add(textBlock);
-        grid.Children.Add(ellipse);
-
-        LockIndicatorsPanel.Children.Add(grid);
-    }
-    
-    private async void Save_OnClick(object sender, RoutedEventArgs e)
-    {
-        if (_paragraphs == null)
-        {
-            await MessageBoxManager.GetMessageBoxStandard("Error", "No content to save.").ShowWindowAsync();
-            return;
-        }
-        
-        var saveFileDialog = new SaveFileDialog();
-        saveFileDialog.Title = "Save File";
-        saveFileDialog.Filters = new List<FileDialogFilter> { new FileDialogFilter { Name = "Text Files", Extensions = { "txt" } } };
-
-        var result = await saveFileDialog.ShowAsync(this);
-        if (result != null)
-        {
-            try
-            {
-                using (var writer = new StreamWriter(result))
-                {
-                    foreach (var paragraph in _paragraphs)
-                    {
-                        await writer.WriteAsync(paragraph.Content.ToString());
-                        await writer.WriteLineAsync();
-                    }
-                }
-                await MessageBoxManager.GetMessageBoxStandard("Success", "File saved successfully.").ShowWindowAsync();
-            }
-            catch (Exception ex)
-            {
-                await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to save file: {ex.Message}").ShowWindowAsync();
-            }
-        }
-    }
-
-    private async void Open_OnClick(object sender, RoutedEventArgs e)
-    {
-        var openFileDialog = new OpenFileDialog();
-        openFileDialog.Title = "Open File";
-        openFileDialog.Filters = new List<FileDialogFilter> { new FileDialogFilter { Name = "Text Files", Extensions = { "txt" } } };
-
-        var result = await openFileDialog.ShowAsync(this);
-        if (result != null && result.Length > 0)
-        {
-            var filePath = result[0]; // first argument is the file path
-            try
-            {
-                using (var stream = File.OpenRead(filePath))
-                using (var reader = new StreamReader(stream))
-                {
-                    var fileContent = await reader.ReadToEndAsync();
-                    fileContent = fileContent.Replace("\r\n", "\n");
-                    _paragraphs = Paragraph.GenerateFromText(fileContent);
-                    OpenFileInEditor();
-                    await MessageBoxManager.GetMessageBoxStandard("Success", "File opened successfully.").ShowWindowAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to open file: {ex.Message}").ShowWindowAsync();
-            }
-        }
-    }
-    private async void New_OnClick(object sender, RoutedEventArgs e)
-    {
-        var box = MessageBoxManager.GetMessageBoxStandard("", "Are you sure you want to open a new file?",
-            ButtonEnum.YesNo);
-        var result = await box.ShowAsync();
-        if (result != ButtonResult.Yes) return;
-        try {
-            _paragraphs = new LinkedList<Paragraph>();
-            _paragraphs.AddLast(new Paragraph { Content = new StringBuilder() });
-            OpenFileInEditor();
-            await MessageBoxManager.GetMessageBoxStandard("Success", "New empty file was created.").ShowWindowAsync();
-        }
-        catch (Exception ex)
-        {
-            await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to load a new file: {ex.Message}").ShowWindowAsync();
+            await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to load a new file: {ex.Message}")
+                .ShowWindowAsync();
         }
     }
 }

@@ -21,7 +21,7 @@ public static class SyncParagraphSending
                 break;
             }
 
-            var currentParagraphNumber = editor.GetCaretLine();
+            var currentParagraphNumber = editor.CaretLine;
             var currentParagraph = editor.GetParagraph(currentParagraphNumber);
             var content = currentParagraph?.Content;
 
