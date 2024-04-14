@@ -10,10 +10,20 @@ void init_linked_list(LinkedList* list) {
     pthread_mutex_init(&list->linked_list_mutex, NULL);
 }
 
-void insert_after_tail(LinkedList* list, char* content) {
+int insert_after_tail(LinkedList* list, char* content) {
     pthread_mutex_lock(&list->linked_list_mutex);
     Node* new_node = (Node*)malloc(sizeof(Node));
-    new_node->content = strdup(content);
+    if (new_node == NULL) {
+        pthread_mutex_unlock(&list->linked_list_mutex);
+        return -1;
+    }
+    content = strdup(content);
+    if (content == NULL) {
+        free(new_node);
+        pthread_mutex_unlock(&list->linked_list_mutex);
+        return -1;
+    }
+    new_node->content = content;
     new_node->locked = 0;
     new_node->socket_id = -1;
     new_node->next = NULL;
@@ -27,12 +37,23 @@ void insert_after_tail(LinkedList* list, char* content) {
         list->head = new_node;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
+    return 0;
 }
 
-void insert_after_node_number(LinkedList* list, int node_number, char* content) {
+int insert_after_node_number(LinkedList* list, int node_number, char* content) {
     pthread_mutex_lock(&list->linked_list_mutex);
     Node* new_node = (Node*)malloc(sizeof(Node));
-    new_node->content = strdup(content);
+    if (new_node == NULL) {
+        pthread_mutex_unlock(&list->linked_list_mutex);
+        return -1;
+    }
+    content = strdup(content);
+    if (content == NULL) {
+        free(new_node);
+        pthread_mutex_unlock(&list->linked_list_mutex);
+        return -1;
+    }
+    new_node->content = content;
     new_node->locked = 0;
     new_node->socket_id = -1;
     new_node->next = NULL;
@@ -60,12 +81,23 @@ void insert_after_node_number(LinkedList* list, int node_number, char* content) 
         list->tail = new_node;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
+    return 0;
 }
 
-void insert_before_head(LinkedList* list, char* content) {
+int insert_before_head(LinkedList* list, char* content) {
     pthread_mutex_lock(&list->linked_list_mutex);
     Node* new_node = (Node*)malloc(sizeof(Node));
-    new_node->content = strdup(content);
+    if (new_node == NULL) {
+        pthread_mutex_unlock(&list->linked_list_mutex);
+        return -1;
+    }
+    content = strdup(content);
+    if (content == NULL) {
+        free(new_node);
+        pthread_mutex_unlock(&list->linked_list_mutex);
+        return -1;
+    }
+    new_node->content = content;
     new_node->locked = 0;
     new_node->socket_id = -1;
     new_node->next = list->head;
@@ -78,6 +110,7 @@ void insert_before_head(LinkedList* list, char* content) {
         list->tail = new_node;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
+    return 0;
 }
 
 
