@@ -19,7 +19,7 @@ typedef struct LinkedList{
     pthread_mutex_t linked_list_mutex;
 }LinkedList;
 
-void initLinkedList(LinkedList *list);
+void init_linked_list(LinkedList *list);
 void insert_after_tail(LinkedList *list, char *content);
 void insert_before_head(LinkedList* list, char *content);
 void insert_after_node_number(LinkedList *list, int node_number, char *content);

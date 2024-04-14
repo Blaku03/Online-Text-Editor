@@ -4,7 +4,7 @@
 
 pthread_mutex_t linked_list_mutex;
 
-void initLinkedList(LinkedList *list) {
+void init_linked_list(LinkedList *list) {
     list->head = NULL;
     list->tail = NULL;
     pthread_mutex_init(&list->linked_list_mutex, NULL);

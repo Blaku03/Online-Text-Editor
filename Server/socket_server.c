@@ -8,7 +8,7 @@ void start_server(void)
         fprintf(stderr, "Error: memory allocation failed\n");
         return;
     }
-////    initLinkedList(paragraphs);
+////    init_linked_list(paragraphs);
 ////    insert_after_tail(paragraphs,"test");
 ////    insert_after_tail(paragraphs,"test2");
 ////    insert_after_tail(paragraphs, "test3");
