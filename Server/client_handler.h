@@ -24,7 +24,6 @@ typedef enum {
     ASYNC_PROTOCOL_ADD_PARAGRAPH_ID,
     ASYNC_PROTOCOL_DELETE_PARAGRAPH_ID,
     UNLOCK_PARAGRAPH_PROTOCOL_ID,
-    CHANGE_LINE_VIA_MOUSE_PROTOCOL_ID
 } ProtocolID;
 
 typedef struct sockaddr_in sockaddr_in;
@@ -45,10 +44,10 @@ int get_file_size(FILE *file);
 void async_protocol_new_paragraph(int sock, LinkedList *paragraphs, char *client_message, int insert_after);
 void async_protocol_delete_paragraph(int sock, LinkedList *paragraphs, int paragraph_number);
 void update_paragraph_protocol(int sock, LinkedList *paragraphs, char *client_message, int protocol_id);
-void unlock_paragraph_after_mouse_press(int sock, LinkedList *paragraphs, char *client_message);
 char *create_message_with_lock_status(LinkedList *paragraphs);
-void add_socket(int socket);
-void remove_socket(int socket);
+void modify_socket_array(int search_for, int replace_with);
 void broadcast(char *message, int sender);
+const char *get_protocol_name(int protocol_id);
+
 
 #endif//SERVER_CLIENT_HANDLER_H

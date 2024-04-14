@@ -8,6 +8,7 @@ void start_server(void) {
         return;
     }
     init_linked_list(paragraphs);
+    pthread_mutex_init(&connected_sockets_mutex, NULL);
     parse_file_to_linked_list(paragraphs, FILE_NAME);
 
     for (int i = 0; i < MAX_CLIENTS; i++) {// Initialize array of connected_sockets

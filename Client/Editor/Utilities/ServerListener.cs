@@ -27,32 +27,22 @@ public static class ServerListener
             {
                 var metadataArray = message.Split(',');
                 var protocolId = (Views.Editor.ProtocolId)int.Parse(metadataArray[0]);
-                string? paragraphContent;
-                StringBuilder? content;
                 switch (protocolId)
                 {
                     case Views.Editor.ProtocolId.SyncParagraph:
                         var paragraphNumber = int.Parse(metadataArray[1]);
-                        paragraphContent = metadataArray[2];
-                        content = new StringBuilder(paragraphContent);
+                        var paragraphContent = metadataArray[2];
+                        var content = new StringBuilder(paragraphContent);
+                        // Remove \n from the end of the content
+                        content.Remove(content.Length - 1, 1);
                         Console.WriteLine($"Received paragraph {paragraphNumber} with content: {paragraphContent}");
                         editor.LockParagraph(paragraphNumber);
                         editor.UpdateParagraph(paragraphNumber, content);
                         break;
                     case Views.Editor.ProtocolId.UnlockParagraph:
                         paragraphNumber = int.Parse(metadataArray[1]);
-                        paragraphContent = metadataArray[2];
-                        content = new StringBuilder(paragraphContent.TrimEnd('\n'));
                         Console.WriteLine($"Received unlock paragraph {paragraphNumber}");
                         editor.UnlockParagraph(paragraphNumber);
-                        editor.UpdateParagraph(paragraphNumber, content);
-                        break;
-                    case Views.Editor.ProtocolId.ChangeLineAfterMousePress:
-                        paragraphNumber = int.Parse(metadataArray[1]);
-                        var current = editor.GetParagraph(paragraphNumber);
-                        content = new StringBuilder(current!.Content.ToString().TrimEnd('\n'));
-                        editor.UnlockParagraph(paragraphNumber);
-                        editor.UpdateParagraph(paragraphNumber, content);
                         break;
                     case Views.Editor.ProtocolId.AsyncDeleteParagraph:
                         paragraphNumber = int.Parse(metadataArray[1]);

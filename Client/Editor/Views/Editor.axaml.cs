@@ -35,7 +35,6 @@ public partial class Editor : Window
         AsyncDeleteParagraph,
         AsyncNewParagraph,
         UnlockParagraph,
-        ChangeLineAfterMousePress
     }
 
 
@@ -205,7 +204,7 @@ public partial class Editor : Window
     private void TextArea_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         //protocol for unlocking paragraph when line is switched by mouse
-        var data = $"{(int)ProtocolId.ChangeLineAfterMousePress},{MainEditor.TextArea.Caret.Line}";
+        var data = $"{(int)ProtocolId.UnlockParagraph},{CaretLine}";
         var buffer = Encoding.ASCII.GetBytes(data);
         _socket.Send(buffer);
     }
@@ -329,11 +328,10 @@ public partial class Editor : Window
         Paragraphs!.ElementAt(paragraphNumber - 1).IsLocked = true;
     }
 
-
     //handling closing window by 'x'
     protected override async void OnClosing(WindowClosingEventArgs e)
     {
-        if (!_isDisconnected) await DisconnectFromServer();
+        if (!_isDisconnected) DisconnectFromServer();
         base.OnClosing(e);
     }
 
@@ -350,8 +348,8 @@ public partial class Editor : Window
 
     private void Refresh()
     {
-        var caretCopyLine = MainEditor.TextArea.Caret.Line;
-        var caretCopyColumn = MainEditor.TextArea.Caret.Column;
+        var caretCopyLine = CaretLine;
+        var caretCopyColumn = CaretColumn;
         MainEditor.Text = Paragraph.GetContent(Paragraphs);
         MainEditor.TextArea.Caret.Line = caretCopyLine;
         MainEditor.TextArea.Caret.Column = caretCopyColumn;
