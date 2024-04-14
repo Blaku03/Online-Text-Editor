@@ -205,9 +205,17 @@ void parse_file_to_linked_list(LinkedList* list, const char* file_name) {
         return;
     }
 
-    char line[1024];
+    char line[1024]; //TODO: is it enough for paragraph ?? to consider
+    char last_char;
     while (fgets(line, sizeof(line), file)) {
         insert_after_tail(list, line);
+        last_char = line[strlen(line) - 1];
+    }
+
+    // Check if the last line ended with a newline character
+    // if yes it means that last line is empty, so insert it with empty content
+    if (last_char == '\n') {
+        insert_after_tail(list, "");
     }
 
     fclose(file);
@@ -264,10 +272,22 @@ void refresh_file(LinkedList* list, const char* file_name) {
         return;
     }
 
+    int number_of_nodes = get_number_of_nodes(list);
+    int printed_nodes = 0;
+
     Node* temp = list->head;
     while (temp != NULL) {
         fprintf(file, "%s", temp->content);
+        printed_nodes++;
         temp = temp->next;
+        if(printed_nodes == number_of_nodes-1) break;
+    }
+
+    // deleting '\n' from last node in case of having empty last line in initial file
+    if(temp != NULL){
+        char* content_of_last_node = temp->content;
+        content_of_last_node[strcspn(content_of_last_node, "\n")] = '\0';
+        fprintf(file, "%s", temp->content);
     }
 
     fclose(file);
@@ -301,4 +321,13 @@ void unlock_paragraph_with_socket_id(LinkedList* list, int socket_id) {
         temp = temp->next;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
+}
+int get_number_of_nodes(LinkedList* list) {
+    Node* temp = list->head;
+    int count = 0;
+    while (temp != NULL) {
+        count++;
+        temp = temp->next;
+    }
+    return count;
 }

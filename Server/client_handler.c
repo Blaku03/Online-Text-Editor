@@ -42,19 +42,17 @@ void *connection_handler(void *args) {
             continue;
         }
 
-        //deleting protocol_id from client message
-        memmove(client_message, client_message + 2, strlen(client_message) - 1);
-
+        delete_id_from_client_message(client_message, protocol_id);
 
         switch (protocol_id) {
             case SYNC_PROTOCOL_ID:
                 update_paragraph_protocol(sock, paragraphs, client_message, SYNC_PROTOCOL_ID);
                 break;
             case ASYNC_PROTOCOL_ADD_PARAGRAPH_ID:
-                async_protocol_new_paragraph(sock, paragraphs, client_message, 1);
+                update_paragraph_protocol(sock, paragraphs, client_message, ASYNC_PROTOCOL_ADD_PARAGRAPH_ID);
                 break;
             case ASYNC_PROTOCOL_DELETE_PARAGRAPH_ID:
-                async_protocol_delete_paragraph(sock, paragraphs, 0);
+                async_protocol_delete_paragraph(sock, paragraphs);
                 break;
             case UNLOCK_PARAGRAPH_PROTOCOL_ID:
                 update_paragraph_protocol(sock, paragraphs, client_message, UNLOCK_PARAGRAPH_PROTOCOL_ID);
@@ -130,12 +128,8 @@ int get_file_size(FILE *file) {
 }
 
 void update_paragraph_protocol(int sock, LinkedList *paragraphs, char *client_message, int protocol_id) {
-    // getting paragraph number
-    int paragraph_number;
-    if (sscanf(client_message, "%d", &paragraph_number) != 1) {
-        fprintf(stderr, "Error: could not parse paragraph number from message\n");
-        return;
-    }
+    int paragraph_number = extract_paragraph_number(client_message);
+
     switch (protocol_id) {
         case SYNC_PROTOCOL_ID:
             lock_paragraph(paragraphs, paragraph_number, sock);
@@ -143,8 +137,13 @@ void update_paragraph_protocol(int sock, LinkedList *paragraphs, char *client_me
         case UNLOCK_PARAGRAPH_PROTOCOL_ID:
             unlock_paragraph(paragraphs, paragraph_number, sock);
             break;
+        case ASYNC_PROTOCOL_ADD_PARAGRAPH_ID:
+            unlock_paragraph(paragraphs, paragraph_number, sock);
+            insert_after_node_number(paragraphs, paragraph_number, "\n");
+            lock_paragraph(paragraphs, paragraph_number + 1, sock);
+            break;
     }
-    memmove(client_message, client_message + 2, strlen(client_message) - 1);
+
     edit_content_of_paragraph(paragraphs, paragraph_number, client_message);
     char *paragraph_content = get_content_of_paragraph(paragraphs, paragraph_number);
 
@@ -157,15 +156,30 @@ void update_paragraph_protocol(int sock, LinkedList *paragraphs, char *client_me
     broadcast(message, sock);
 }
 
+int extract_paragraph_number(char* client_message){
+    int paragraph_number;
+    if (sscanf(client_message, "%d", &paragraph_number) != 1) {
+        fprintf(stderr, "Error: could not parse paragraph number from message\n");
+    }
 
-void async_protocol_new_paragraph(int sock, LinkedList *paragraphs, char *client_message, int insert_after) {
-    // TODO: extract paragraph number from client message
-    //    insert_after_node_number(paragraphs, add_after, client_message);
-    //    refresh_file(paragraphs, FILE_NAME);
-    //    broadcast(client_message, sock);
+    // deleting paragraph number based on its length
+    char paragraph_number_as_string[20];
+    sprintf(paragraph_number_as_string, "%d", paragraph_number);
+    unsigned int digits_of_paragraph_number = strlen(paragraph_number_as_string);
+    memmove(client_message, client_message + digits_of_paragraph_number + 1, strlen(client_message) - digits_of_paragraph_number);
+
+    return paragraph_number;
 }
 
-void async_protocol_delete_paragraph(int sock, LinkedList *paragraphs, int paragraph_number) {
+void delete_id_from_client_message(char* client_message, int id){
+    // deleting id based on its length
+    char id_as_string[20];
+    sprintf(id_as_string, "%d", id);
+    unsigned int digits_of_paragraph_number = strlen(id_as_string);
+    memmove(client_message, client_message + digits_of_paragraph_number + 1, strlen(client_message) - digits_of_paragraph_number);
+}
+
+void async_protocol_delete_paragraph(int sock, LinkedList *paragraphs){
 }
 
 void add_socket(int socket) {
@@ -240,12 +254,7 @@ char *create_message_with_lock_status(LinkedList *paragraphs) {
 }
 
 void unlock_paragraph_after_mouse_press(int sock, LinkedList *paragraphs, char *client_message) {
-    int paragraph_number;
-    if (sscanf(client_message, "%d", &paragraph_number) != 1) {
-        fprintf(stderr, "Error: could not parse paragraph number from message\n");
-        return;
-    }
-    //send paragraph number to all
+    int paragraph_number = extract_paragraph_number(client_message);
     char message[KILOBYTE];
     snprintf(message, sizeof(message), "%d,%d", CHANGE_LINE_VIA_MOUSE_PROTOCOL_ID, paragraph_number);
     unlock_paragraph(paragraphs, paragraph_number, sock);

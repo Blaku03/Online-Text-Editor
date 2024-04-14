@@ -29,6 +29,7 @@ public static class ServerListener
                 var protocolId = (Views.Editor.ProtocolId)int.Parse(metadataArray[0]);
                 string? paragraphContent;
                 StringBuilder? content;
+                Paragraph? current;
                 switch (protocolId)
                 {
                     case Views.Editor.ProtocolId.SyncParagraph:
@@ -49,7 +50,7 @@ public static class ServerListener
                         break;
                     case Views.Editor.ProtocolId.ChangeLineAfterMousePress:
                         paragraphNumber = int.Parse(metadataArray[1]);
-                        var current = editor.GetParagraph(paragraphNumber);
+                        current = editor.GetParagraph(paragraphNumber);
                         content = new StringBuilder(current!.Content.ToString().TrimEnd('\n'));
                         editor.UnlockParagraph(paragraphNumber);
                         editor.UpdateParagraph(paragraphNumber, content);
@@ -58,8 +59,13 @@ public static class ServerListener
                         paragraphNumber = int.Parse(metadataArray[1]);
                         break;
                     case Views.Editor.ProtocolId.AsyncNewParagraph:
-                        var newParagraphNumber = int.Parse(metadataArray[1]);
-                        var newParagraphContent = metadataArray[2];
+                        paragraphNumber = int.Parse(metadataArray[1]);
+                        paragraphContent = metadataArray[2]; //previous paragraph content to update
+                        content = new StringBuilder(paragraphContent.TrimEnd('\n'));
+                        editor.UnlockParagraph(paragraphNumber); //unlock previous paragraph
+                        editor.UpdateParagraph(paragraphNumber, content); //update content of previous paragraph
+                        editor.AddNewParagraphAfter(paragraphNumber); //add new paragraph
+                        editor.LockParagraph(paragraphNumber + 1); //lock new paragraph
                         break;
                 }
             }

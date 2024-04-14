@@ -34,6 +34,7 @@ void parse_file_to_linked_list(LinkedList* list, const char* file_name);
 void free_linked_list(LinkedList* list);
 char* get_content_of_paragraph(LinkedList* list, int paragraph_number);
 void unlock_paragraph_with_socket_id(LinkedList* list, int socket_id);
+int get_number_of_nodes(LinkedList* list);
 
 
 #endif//SERVER_LINKED_LIST_H

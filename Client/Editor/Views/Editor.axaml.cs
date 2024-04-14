@@ -26,10 +26,10 @@ public partial class Editor : Window
     public enum ProtocolId
     {
         SyncParagraph = 1,
-        AsyncDeleteParagraph,
         AsyncNewParagraph,
+        AsyncDeleteParagraph,
         UnlockParagraph,
-        ChangeLineAfterMousePress
+        ChangeLineAfterMousePress,
     }
 
 
@@ -245,37 +245,30 @@ public partial class Editor : Window
                 return;
             }
 
-            var newParagraph = new Paragraph { Content = new StringBuilder() };
-            var currentNode = Paragraphs.First;
-            for (int i = 0; i < CaretLine - 1 && currentNode != null; i++)
-            {
-                currentNode = currentNode.Next;
-            }
-
+            AddNewParagraphAfter(CaretLine);
+            
             // TODO: create protocol for sending new paragraph, server must response with 'ok'
-
-
-            Paragraphs.AddAfter(currentNode!, newParagraph);
-            MainEditor.Text = Paragraph.GetContent(Paragraphs);
-            Console.WriteLine(MainEditor.TextArea.Caret.Line);
-            MainEditor.TextArea.Caret.Line = currentCaretLine + 1;
+            var data = $"{(int)ProtocolId.AsyncNewParagraph},{CaretLine},{caretParagraph.Content}\n";
+            var buffer = Encoding.ASCII.GetBytes(data);
+            _socket.Send(buffer);
+            
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                MainEditor.TextArea.Caret.Line = currentCaretLine + 1;
+            });
             e.Handled = true;
             _keyHandled = true;
             return;
         }
 
-        if (e.Key is Key.Insert or Key.Q)
-        {
-            // Toggle of lock
-            caretParagraph.IsLocked = !caretParagraph.IsLocked;
-            e.Handled = true;
-            var caretCopyLine = MainEditor.TextArea.Caret.Line;
-            var caretCopyColumn = MainEditor.TextArea.Caret.Column;
-            MainEditor.Text = Paragraph.GetContent(Paragraphs);
-            MainEditor.TextArea.Caret.Line = caretCopyLine;
-            MainEditor.TextArea.Caret.Column = caretCopyColumn;
-            return;
-        }
+        // if (e.Key is Key.Insert or Key.Q)
+        // {
+        //     // Toggle of lock
+        //     caretParagraph.IsLocked = !caretParagraph.IsLocked;
+        //     e.Handled = true;
+        //     Refresh();
+        //     return;
+        // }
 
         // Basic lock check
         if (caretParagraph.IsLocked)
@@ -315,6 +308,19 @@ public partial class Editor : Window
             }
         }
     }
+    
+    public void AddNewParagraphAfter(int paragraphNumber)
+    {
+        var newParagraph = new Paragraph { Content = new StringBuilder() };
+        var currentNode = Paragraphs!.First;
+        for (int i = 0; i < paragraphNumber - 1 && currentNode != null; i++)
+        {
+            currentNode = currentNode.Next;
+        }
+
+        Paragraphs.AddAfter(currentNode!, newParagraph);
+        Refresh();
+    }
 
 
     public void LockParagraph(int paragraphNumber)
@@ -337,24 +343,29 @@ public partial class Editor : Window
         if (e.Key is Key.Up or Key.Down) return;
         if (_keyHandled) return;
 
-        // Update the content of the paragraph
-        Paragraphs = Paragraph.GenerateFromText(MainEditor.Text, Paragraphs);
+        //updating paragraph content after key is released
+        var currentParagraph = Paragraphs.ElementAt(CaretLine - 1);
+        var lines = MainEditor.Text.Split('\n'); //split MainEditor.Text into lines
+        currentParagraph.Content = new StringBuilder(lines[CaretLine - 1]); // update paragraph
     }
 
     private void Refresh()
     {
-        var caretCopyLine = MainEditor.TextArea.Caret.Line;
-        var caretCopyColumn = MainEditor.TextArea.Caret.Column;
-        MainEditor.Text = Paragraph.GetContent(Paragraphs);
-        MainEditor.TextArea.Caret.Line = caretCopyLine;
-        MainEditor.TextArea.Caret.Column = caretCopyColumn;
+        //Refresh method needs to be called from main UIThread
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var caretCopyLine = MainEditor.TextArea.Caret.Line;
+            var caretCopyColumn = MainEditor.TextArea.Caret.Column;
+            MainEditor.Text = Paragraph.GetContent(Paragraphs);
+            MainEditor.TextArea.Caret.Line = caretCopyLine;
+            MainEditor.TextArea.Caret.Column = caretCopyColumn;
+        });
     }
 
     public void UpdateParagraph(int paragraphNumber, StringBuilder newContent)
     {
         Paragraphs!.ElementAt(paragraphNumber - 1).Content = newContent;
-        Avalonia.Threading.Dispatcher.UIThread
-            .InvokeAsync(Refresh); //Refresh method needs to be called from main UIThread
+        Refresh();
     }
 
     private static bool IsSafeKey(Key key)
