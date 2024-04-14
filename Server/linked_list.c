@@ -148,7 +148,7 @@ void print_list(LinkedList* list) {
         printf("Content: %s, Locked: %d, SocketID: %d\n", temp->content, temp->locked, temp->socket_id);
         temp = temp->next;
     }
-    fflush(stdout);//added for debugging because when debugging with GDB printf is buffered
+    fflush(stdout); //added for debugging because when debugging with GDB printf is buffered
 }
 
 void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id) {
@@ -179,7 +179,7 @@ int is_locked(LinkedList* list, int paragraph_number) {
         return temp->locked;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
-    return -1;// Return -1 if the paragraph is not found
+    return -1; // Return -1 if the paragraph is not found
 }
 
 int get_socket_id(LinkedList* list, int paragraph_number) {
@@ -195,7 +195,7 @@ int get_socket_id(LinkedList* list, int paragraph_number) {
         return temp->socket_id;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
-    return -1;// Return -1 if the paragraph is not found
+    return -1; // Return -1 if the paragraph is not found
 }
 
 void parse_file_to_linked_list(LinkedList* list, const char* file_name) {
@@ -224,6 +224,7 @@ void free_linked_list(LinkedList* list) {
     }
     list->head = NULL;
     list->tail = NULL;
+    pthread_mutex_destroy(&list->linked_list_mutex);
 }
 
 void unlock_paragraph(LinkedList* list, int paragraph_number, int socket_id) {
