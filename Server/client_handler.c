@@ -139,7 +139,7 @@ void update_paragraph_protocol(int sock, LinkedList *paragraphs, char *client_me
             break;
         case ASYNC_PROTOCOL_ADD_PARAGRAPH_ID:
             unlock_paragraph(paragraphs, paragraph_number, sock);
-            insert_after_node_number(paragraphs, paragraph_number, "\n");
+            insert_after_node_number(paragraphs, paragraph_number, create_new_node("\n"));
             lock_paragraph(paragraphs, paragraph_number + 1, sock);
             break;
     }
@@ -180,6 +180,9 @@ void delete_id_from_client_message(char* client_message, int id){
 }
 
 void async_protocol_delete_paragraph(int sock, LinkedList *paragraphs){
+    // temporary hack to remove compilation warning
+    sock++;
+    paragraphs = NULL;
 }
 
 void add_socket(int socket) {

@@ -9,54 +9,55 @@ void init_linked_list(LinkedList* list) {
     pthread_mutex_init(&list->linked_list_mutex, NULL);
 }
 
-int insert_after_tail(LinkedList* list, char* content) {
-    pthread_mutex_lock(&list->linked_list_mutex);
-    Node* new_node = (Node*) malloc(sizeof(Node));
-    if (new_node == NULL) {
-        pthread_mutex_unlock(&list->linked_list_mutex);
-        return -1;
-    }
-    content = strdup(content);
+// Create a new linked list node allocated on the heap
+// with a copy of the passed content and return a pointer
+// to it on success, otherwise return NULL.
+Node* create_new_node(const char* content) {
     if (content == NULL) {
-        free(new_node);
-        pthread_mutex_unlock(&list->linked_list_mutex);
-        return -1;
+        return NULL;
     }
-    new_node->content = content;
+    Node* new_node = (Node*)malloc(sizeof(Node));
+    if (new_node == NULL) {
+        return NULL;
+    }
+    char* content_copy = strdup(content);
+    if (content_copy == NULL) {
+        free(new_node);
+        return NULL;
+    }
+    new_node->content = content_copy;
     new_node->locked = 0;
     new_node->socket_id = -1;
     new_node->next = NULL;
-    new_node->previous = list->tail;
+    new_node->previous = NULL;
+    return new_node;
+}
+
+int insert_after_tail(LinkedList* list, Node* node) {
+    if (node == NULL) {
+        return -1;
+    }
+    pthread_mutex_lock(&list->linked_list_mutex);
+    node->previous = list->tail;
 
     if (list->tail != NULL) {
-        list->tail->next = new_node;
+        list->tail->next = node;
     }
-    list->tail = new_node;
+    list->tail = node;
     if (list->head == NULL) {
-        list->head = new_node;
+        list->head = node;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
     return 0;
 }
 
-int insert_after_node_number(LinkedList* list, int node_number, char* content) {
+int insert_after_node_number(LinkedList* list, int node_number, Node* node) {
+    if (node == NULL) {
+        return -1;
+    }
     pthread_mutex_lock(&list->linked_list_mutex);
-    Node* new_node = (Node*) malloc(sizeof(Node));
-    if (new_node == NULL) {
-        pthread_mutex_unlock(&list->linked_list_mutex);
-        return -1;
-    }
-    content = strdup(content);
-    if (content == NULL) {
-        free(new_node);
-        pthread_mutex_unlock(&list->linked_list_mutex);
-        return -1;
-    }
-    new_node->content = content;
-    new_node->locked = 0;
-    new_node->socket_id = -1;
-    new_node->next = NULL;
-    new_node->previous = NULL;
+    node->next = NULL;
+    node->previous = NULL;
 
     Node* current_node = list->head;
     int current_number = 1;
@@ -66,47 +67,35 @@ int insert_after_node_number(LinkedList* list, int node_number, char* content) {
     }
 
     if (current_node != NULL) {
-        new_node->next = current_node->next;
-        new_node->previous = current_node;
+        node->next = current_node->next;
+        node->previous = current_node;
         if (current_node->next != NULL) {
-            current_node->next->previous = new_node;
+            current_node->next->previous = node;
         }
-        current_node->next = new_node;
+        current_node->next = node;
         if (list->tail == current_node) {
-            list->tail = new_node;
+            list->tail = node;
         }
     } else {
-        list->head = new_node;
-        list->tail = new_node;
+        list->head = node;
+        list->tail = node;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
     return 0;
 }
 
-int insert_before_head(LinkedList* list, char* content) {
+int insert_before_head(LinkedList* list, Node* node) {
+    if (node == NULL) {
+        return -1;
+    }
     pthread_mutex_lock(&list->linked_list_mutex);
-    Node* new_node = (Node*) malloc(sizeof(Node));
-    if (new_node == NULL) {
-        pthread_mutex_unlock(&list->linked_list_mutex);
-        return -1;
-    }
-    content = strdup(content);
-    if (content == NULL) {
-        free(new_node);
-        pthread_mutex_unlock(&list->linked_list_mutex);
-        return -1;
-    }
-    new_node->content = content;
-    new_node->locked = 0;
-    new_node->socket_id = -1;
-    new_node->next = list->head;
-    new_node->previous = NULL;
+    node->previous = NULL;
     if (list->head != NULL) {
-        list->head->previous = new_node;
+        list->head->previous = node;
     }
-    list->head = new_node;
+    list->head = node;
     if (list->tail == NULL) {
-        list->tail = new_node;
+        list->tail = node;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
     return 0;
@@ -208,14 +197,14 @@ void parse_file_to_linked_list(LinkedList* list, const char* file_name) {
     char line[1024]; //TODO: is it enough for paragraph ?? to consider
     char last_char;
     while (fgets(line, sizeof(line), file)) {
-        insert_after_tail(list, line);
+        insert_after_tail(list, create_new_node(line));
         last_char = line[strlen(line) - 1];
     }
 
     // Check if the last line ended with a newline character
     // if yes it means that last line is empty, so insert it with empty content
     if (last_char == '\n') {
-        insert_after_tail(list, "");
+        insert_after_tail(list, create_new_node(""));
     }
 
     fclose(file);
