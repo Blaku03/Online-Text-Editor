@@ -1,8 +1,7 @@
 #include "linked_list.h"
+
 #include <stdlib.h>
 #include <string.h>
-
-pthread_mutex_t linked_list_mutex;
 
 void init_linked_list(LinkedList* list) {
     list->head = NULL;
@@ -12,7 +11,7 @@ void init_linked_list(LinkedList* list) {
 
 int insert_after_tail(LinkedList* list, char* content) {
     pthread_mutex_lock(&list->linked_list_mutex);
-    Node* new_node = (Node*)malloc(sizeof(Node));
+    Node* new_node = (Node*) malloc(sizeof(Node));
     if (new_node == NULL) {
         pthread_mutex_unlock(&list->linked_list_mutex);
         return -1;
@@ -42,7 +41,7 @@ int insert_after_tail(LinkedList* list, char* content) {
 
 int insert_after_node_number(LinkedList* list, int node_number, char* content) {
     pthread_mutex_lock(&list->linked_list_mutex);
-    Node* new_node = (Node*)malloc(sizeof(Node));
+    Node* new_node = (Node*) malloc(sizeof(Node));
     if (new_node == NULL) {
         pthread_mutex_unlock(&list->linked_list_mutex);
         return -1;
@@ -86,7 +85,7 @@ int insert_after_node_number(LinkedList* list, int node_number, char* content) {
 
 int insert_before_head(LinkedList* list, char* content) {
     pthread_mutex_lock(&list->linked_list_mutex);
-    Node* new_node = (Node*)malloc(sizeof(Node));
+    Node* new_node = (Node*) malloc(sizeof(Node));
     if (new_node == NULL) {
         pthread_mutex_unlock(&list->linked_list_mutex);
         return -1;
@@ -115,7 +114,7 @@ int insert_before_head(LinkedList* list, char* content) {
 
 
 void delete(LinkedList* list, char* content) {
-    pthread_mutex_lock(&linked_list_mutex);
+    pthread_mutex_lock(&list->linked_list_mutex);
     Node* temp = list->head;
     Node* prev = NULL;
 
@@ -125,19 +124,22 @@ void delete(LinkedList* list, char* content) {
     }
 
     if (temp == NULL) {
-        pthread_mutex_unlock(&linked_list_mutex);
+        pthread_mutex_unlock(&list->linked_list_mutex);
         return;
     }
 
     if (prev != NULL) prev->next = temp->next;
-    else list->head = temp->next;
+    else
+        list->head = temp->next;
 
     if (temp->next != NULL) temp->next->previous = prev;
-    else list->tail = prev;
+    else
+        list->tail = prev;
 
     free(temp->content);
+    temp->content = NULL;
     free(temp);
-    pthread_mutex_unlock(&linked_list_mutex);
+    pthread_mutex_unlock(&list->linked_list_mutex);
 }
 
 void print_list(LinkedList* list) {
@@ -146,11 +148,11 @@ void print_list(LinkedList* list) {
         printf("Content: %s, Locked: %d, SocketID: %d\n", temp->content, temp->locked, temp->socket_id);
         temp = temp->next;
     }
-    fflush(stdout); //added for debugging because when debugging with GDB printf is buffered
+    fflush(stdout);//added for debugging because when debugging with GDB printf is buffered
 }
 
 void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id) {
-    pthread_mutex_lock(&linked_list_mutex);
+    pthread_mutex_lock(&list->linked_list_mutex);
     Node* temp = list->head;
     int current_number = 1;
     while (temp != NULL && current_number < paragraph_number) {
@@ -161,11 +163,11 @@ void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id) {
         temp->locked = 1;
         temp->socket_id = socket_id;
     }
-    pthread_mutex_unlock(&linked_list_mutex);
+    pthread_mutex_unlock(&list->linked_list_mutex);
 }
 
 int is_locked(LinkedList* list, int paragraph_number) {
-    pthread_mutex_lock(&linked_list_mutex);
+    pthread_mutex_lock(&list->linked_list_mutex);
     Node* temp = list->head;
     int current_number = 1;
     while (temp != NULL && current_number < paragraph_number) {
@@ -173,15 +175,15 @@ int is_locked(LinkedList* list, int paragraph_number) {
         current_number++;
     }
     if (temp != NULL) {
-        pthread_mutex_unlock(&linked_list_mutex);
+        pthread_mutex_unlock(&list->linked_list_mutex);
         return temp->locked;
     }
-    pthread_mutex_unlock(&linked_list_mutex);
-    return -1; // Return -1 if the paragraph is not found
+    pthread_mutex_unlock(&list->linked_list_mutex);
+    return -1;// Return -1 if the paragraph is not found
 }
 
 int get_socket_id(LinkedList* list, int paragraph_number) {
-    pthread_mutex_lock(&linked_list_mutex);
+    pthread_mutex_lock(&list->linked_list_mutex);
     Node* temp = list->head;
     int current_number = 1;
     while (temp != NULL && current_number < paragraph_number) {
@@ -189,11 +191,11 @@ int get_socket_id(LinkedList* list, int paragraph_number) {
         current_number++;
     }
     if (temp != NULL) {
-        pthread_mutex_unlock(&linked_list_mutex);
+        pthread_mutex_unlock(&list->linked_list_mutex);
         return temp->socket_id;
     }
-    pthread_mutex_unlock(&linked_list_mutex);
-    return -1; // Return -1 if the paragraph is not found
+    pthread_mutex_unlock(&list->linked_list_mutex);
+    return -1;// Return -1 if the paragraph is not found
 }
 
 void parse_file_to_linked_list(LinkedList* list, const char* file_name) {
@@ -216,6 +218,7 @@ void free_linked_list(LinkedList* list) {
     while (temp != NULL) {
         Node* next = temp->next;
         free(temp->content);
+        temp->content = NULL;
         free(temp);
         temp = next;
     }
@@ -224,7 +227,7 @@ void free_linked_list(LinkedList* list) {
 }
 
 void unlock_paragraph(LinkedList* list, int paragraph_number, int socket_id) {
-    pthread_mutex_lock(&linked_list_mutex);
+    pthread_mutex_lock(&list->linked_list_mutex);
     Node* temp = list->head;
     int current_number = 1;
     while (temp != NULL && current_number < paragraph_number) {
@@ -235,11 +238,11 @@ void unlock_paragraph(LinkedList* list, int paragraph_number, int socket_id) {
         temp->locked = 0;
         temp->socket_id = -1;
     }
-    pthread_mutex_unlock(&linked_list_mutex);
+    pthread_mutex_unlock(&list->linked_list_mutex);
 }
 
 void edit_content_of_paragraph(LinkedList* list, int paragraph_number, char* new_content) {
-    pthread_mutex_lock(&linked_list_mutex);
+    pthread_mutex_lock(&list->linked_list_mutex);
     Node* temp = list->head;
     int current_number = 1;
     while (temp != NULL && current_number < paragraph_number) {
@@ -250,12 +253,11 @@ void edit_content_of_paragraph(LinkedList* list, int paragraph_number, char* new
         free(temp->content);
         temp->content = strdup(new_content);
     }
-    pthread_mutex_unlock(&linked_list_mutex);
-
+    pthread_mutex_unlock(&list->linked_list_mutex);
 }
 
 void refresh_file(LinkedList* list, const char* file_name) {
-    pthread_mutex_lock(&linked_list_mutex);
+    pthread_mutex_lock(&list->linked_list_mutex);
     FILE* file = fopen(file_name, "w");
     if (file == NULL) {
         fprintf(stderr, "Error: file not found\n");
@@ -269,11 +271,11 @@ void refresh_file(LinkedList* list, const char* file_name) {
     }
 
     fclose(file);
-    pthread_mutex_unlock(&linked_list_mutex);
+    pthread_mutex_unlock(&list->linked_list_mutex);
 }
 
 char* get_content_of_paragraph(LinkedList* list, int paragraph_number) {
-    pthread_mutex_lock(&linked_list_mutex);
+    pthread_mutex_lock(&list->linked_list_mutex);
     Node* temp = list->head;
     int current_number = 1;
     while (temp != NULL && current_number < paragraph_number) {
@@ -281,15 +283,15 @@ char* get_content_of_paragraph(LinkedList* list, int paragraph_number) {
         current_number++;
     }
     if (temp != NULL) {
-        pthread_mutex_unlock(&linked_list_mutex);
+        pthread_mutex_unlock(&list->linked_list_mutex);
         return temp->content;
     }
-    pthread_mutex_unlock(&linked_list_mutex);
+    pthread_mutex_unlock(&list->linked_list_mutex);
     return NULL;
 }
 
 void unlock_paragraph_with_socket_id(LinkedList* list, int socket_id) {
-    pthread_mutex_lock(&linked_list_mutex);
+    pthread_mutex_lock(&list->linked_list_mutex);
     Node* temp = list->head;
     while (temp != NULL) {
         if (temp->socket_id == socket_id) {
@@ -298,6 +300,5 @@ void unlock_paragraph_with_socket_id(LinkedList* list, int socket_id) {
         }
         temp = temp->next;
     }
-    pthread_mutex_unlock(&linked_list_mutex);
-
+    pthread_mutex_unlock(&list->linked_list_mutex);
 }

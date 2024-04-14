@@ -11,7 +11,7 @@ public class Paragraph
     public bool IsLocked { get; set; }
 
     private const string LockedString = " (locked)";
-    
+
     public Guid Id { get; } = Guid.NewGuid();
 
     public static LinkedList<Paragraph> GenerateFromText(string fileContent,
@@ -67,6 +67,7 @@ public class Paragraph
                 content.Append('\n');
             }
         }
+
         return content.ToString();
     }
 
