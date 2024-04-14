@@ -22,6 +22,7 @@ public partial class MainMenu : Window
     {
         IpTextBox.Text = DefaultServerIp;
         PortTextBox.Text = DefaultServerPort.ToString();
+        UserNameBox.Text = "";
     }
 
     private void PortTextBox_OnTextInput(object? sender, TextChangingEventArgs textChangingEventArgs)
@@ -29,6 +30,15 @@ public partial class MainMenu : Window
         var textBox = (TextBox)sender!;
 
         var currentText = textBox.Text;
+        if (string.IsNullOrEmpty(currentText)) return;
+        textBox.Text = string.Concat(currentText.Where(char.IsDigit));
+    }
+    
+    private void UserNameBox_OnTextInput(object? sender, TextChangingEventArgs textChangingEventArgs)
+    {
+        var textBox = (TextBox)sender!;
+
+        var currentText = "";
         if (string.IsNullOrEmpty(currentText)) return;
         textBox.Text = string.Concat(currentText.Where(char.IsDigit));
     }
@@ -47,6 +57,20 @@ public partial class MainMenu : Window
         {
             await MessageBoxManager.GetMessageBoxStandard(
                 "Error", "Please provide port to connect to").ShowWindowAsync();
+            return;
+        }
+        
+        if (string.IsNullOrEmpty(UserNameBox.Text))
+        {
+            await MessageBoxManager.GetMessageBoxStandard(
+                "Error", "Please provide a username.").ShowWindowAsync();
+            return;
+        }
+
+        if (UserNameBox.Text.Length > 20)
+        {
+            await MessageBoxManager.GetMessageBoxStandard(
+                "Error", "Your username should not exceed 20 characters").ShowWindowAsync();
             return;
         }
 
