@@ -23,6 +23,7 @@ namespace Editor.Views;
 public partial class Editor : Window
 {
     private readonly Socket _socket;
+    private readonly string _userName;
     private LinkedList<Paragraph>? Paragraphs { get; set; }
     public int CaretLine => MainEditor.TextArea.Caret.Line;
     private int CaretColumn => MainEditor.TextArea.Caret.Column;
@@ -43,14 +44,18 @@ public partial class Editor : Window
     private readonly CancellationTokenSource _cancellationTokenForServerListener = new();
 
 
-    public Editor(Socket socket)
+    public Editor(Socket socket, string userName)
     {
         InitializeComponent();
         _socket = socket;
+        _userName = userName;
         GetFileFromServer();
         MainEditor.AddHandler(InputElement.KeyDownEvent, Text_KeyDown, RoutingStrategies.Tunnel);
         MainEditor.AddHandler(InputElement.KeyUpEvent, Text_KeyUp, RoutingStrategies.Tunnel);
         MainEditor.TextArea.AddHandler(InputElement.PointerPressedEvent, TextArea_PointerPressed,
+            RoutingStrategies.Tunnel);
+        MainEditor.TextArea.AddHandler(InputElement.PointerReleasedEvent,
+            (_, _) => { SetLockUserLine(_userName, CaretLine); },
             RoutingStrategies.Tunnel);
 
         // Disable selection of text
@@ -115,10 +120,7 @@ public partial class Editor : Window
         await _socket.SendAsync(Encoding.ASCII.GetBytes("OK"));
 
         OpenFileInEditor();
-        AddLockUser("blaquu", Brushes.Red);
-        SetLockUserLine("blaquu", 2);
-        AddLockUser("andrzejek", Brushes.Blue);
-        SetLockUserLine("andrzejek", 4);
+        AddLockUser(_userName, Brushes.Red);
 
         // starting thread for sync sending paragraphs to the server
         Thread synchronousParagraphSending = new(() =>
@@ -163,8 +165,8 @@ public partial class Editor : Window
         {
             if (_socket.Connected)
             {
-                await _cancellationTokenForServerListener.CancelAsync();
-                await _cancellationTokenForSyncParagraphSending.CancelAsync();
+                _cancellationTokenForServerListener.CancelAsync();
+                _cancellationTokenForSyncParagraphSending.CancelAsync();
                 Paragraphs = null;
                 _socket.Shutdown(SocketShutdown.Both);
                 _socket.Close();
@@ -331,7 +333,7 @@ public partial class Editor : Window
     //handling closing window by 'x'
     protected override async void OnClosing(WindowClosingEventArgs e)
     {
-        if (!_isDisconnected) DisconnectFromServer();
+        if (!_isDisconnected) await DisconnectFromServer();
         base.OnClosing(e);
     }
 
@@ -339,7 +341,12 @@ public partial class Editor : Window
     {
         if (Paragraphs == null) return;
         if (IsSafeKey(e.Key)) return;
-        if (e.Key is Key.Up or Key.Down) return;
+        if (e.Key is Key.Up or Key.Down)
+        {
+            SetLockUserLine(_userName, CaretLine);
+            return;
+        }
+
         if (_keyHandled) return;
 
         // Update the content of the paragraph
@@ -355,9 +362,9 @@ public partial class Editor : Window
         MainEditor.TextArea.Caret.Column = caretCopyColumn;
     }
 
-    public void UpdateParagraph(int paragraphNumber, StringBuilder newContent)
+    public void UpdateParagraph(int paragraphNumber, StringBuilder newContent, bool refreshOnly = false)
     {
-        Paragraphs!.ElementAt(paragraphNumber - 1).Content = newContent;
+        if (!refreshOnly) Paragraphs!.ElementAt(paragraphNumber - 1).Content = newContent;
         Avalonia.Threading.Dispatcher.UIThread
             .InvokeAsync(Refresh); //Refresh method needs to be called from main UIThread
     }

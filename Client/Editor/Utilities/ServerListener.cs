@@ -43,6 +43,7 @@ public static class ServerListener
                         paragraphNumber = int.Parse(metadataArray[1]);
                         Console.WriteLine($"Received unlock paragraph {paragraphNumber}");
                         editor.UnlockParagraph(paragraphNumber);
+                        editor.UpdateParagraph(paragraphNumber, new StringBuilder(), true);
                         break;
                     case Views.Editor.ProtocolId.AsyncDeleteParagraph:
                         paragraphNumber = int.Parse(metadataArray[1]);
