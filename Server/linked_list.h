@@ -6,6 +6,7 @@
 
 typedef struct Node {
     char* content;
+    char* user_name;
     int locked;
     int socket_id;
     struct Node* next;
@@ -28,7 +29,7 @@ char* edit_content_of_paragraph(LinkedList* list, int paragraph_number, char* ne
 void refresh_file(LinkedList* list, const char* file_name);
 int get_socket_id(LinkedList* list, int paragraph_number);
 int is_locked(LinkedList* list, int paragraph_number);
-void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id);
+void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id, char* user_name);
 void unlock_paragraph(LinkedList* list, int paragraph_number, int socket_id);
 void parse_file_to_linked_list(LinkedList* list, const char* file_name);
 void free_linked_list(LinkedList* list);

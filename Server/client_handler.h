@@ -36,6 +36,7 @@ typedef struct sockaddr sockaddr;
 #define MAX_NUMBER_SKIPPED_CHECK_INS 3
 #define KILOBYTE 1024
 extern int connected_sockets[MAX_CLIENTS];
+extern char *user_names[MAX_CLIENTS];
 extern pthread_mutex_t connected_sockets_mutex;
 
 void *connection_handler(void *socket_desc);
@@ -46,8 +47,11 @@ void async_protocol_delete_paragraph(int sock, LinkedList *paragraphs, int parag
 void update_paragraph_protocol(int sock, LinkedList *paragraphs, char *client_message, int protocol_id);
 char *create_message_with_lock_status(LinkedList *paragraphs);
 void modify_socket_array(int search_for, int replace_with);
-void broadcast(char *message, int sender);
+int safe_strcmp(const char *s1, const char *s2); // Because normal strcmp crashes if one of the strings is NULL
+void modify_username_array(char *search_for, char *replace_with);
+void broadcast(char *message, int sender, LinkedList *paragraphs);
 const char *get_protocol_name(int protocol_id);
+char *get_user_name_by_socket_id(int socket_id);
 
 
 #endif//SERVER_CLIENT_HANDLER_H

@@ -100,26 +100,14 @@ public partial class Editor : Window
 
         Paragraphs = Paragraph.GenerateFromText(fileContent.ToString());
 
-        // Initial lock protocol 
-        // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
-        var lockMessage = new byte[1024];
-        await _socket.ReceiveAsync(lockMessage);
-        if (lockMessage[0] != '0')
-        {
-            var lockMessageString = Encoding.ASCII.GetString(lockMessage);
-            var lockMessageArray = lockMessageString.Split(',');
-
-            foreach (var j in lockMessageArray)
-            {
-                if (int.Parse(j) == 0) break;
-                var paragraphNumber = int.Parse(j);
-                LockParagraph(paragraphNumber);
-            }
-        }
-
-        await _socket.SendAsync(Encoding.ASCII.GetBytes("OK"));
-
         OpenFileInEditor();
+
+        // Initial lock protocol
+        // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
+        UpdateLockedUsers(true);
+
+        await _socket.SendAsync(Encoding.ASCII.GetBytes(_userName));
+
         AddLockUser(_userName, Brushes.Red);
 
         // starting thread for sync sending paragraphs to the server
@@ -209,6 +197,7 @@ public partial class Editor : Window
         var data = $"{(int)ProtocolId.UnlockParagraph},{CaretLine}";
         var buffer = Encoding.ASCII.GetBytes(data);
         _socket.Send(buffer);
+        SetLockUserLine(_userName, CaretLine);
     }
 
     private async void Disconnect_OnClick(object sender, RoutedEventArgs e)
@@ -383,33 +372,50 @@ public partial class Editor : Window
     private void SetLockUserLine(string userName, int columnNumber)
     {
         // Find the Grid for the user
-        Grid? userGrid = null;
-        foreach (var control in LockIndicatorsPanel.Children)
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var grid = (Grid?)control;
-            var textBlock = grid?.Children.OfType<TextBlock>().FirstOrDefault();
-            if (textBlock != null && textBlock.Text == userName)
+            Grid? userGrid = null;
+            foreach (var control in LockIndicatorsPanel.Children)
             {
-                userGrid = grid;
-                break;
+                var grid = (Grid?)control;
+                var textBlock = grid?.Children.OfType<TextBlock>().FirstOrDefault();
+                if (textBlock != null && textBlock.Text == userName)
+                {
+                    userGrid = grid;
+                    break;
+                }
             }
-        }
 
-        if (userGrid == null)
-        {
-            // Weird if it happens but just in case
-            return;
-        }
+            userGrid ??= AddLockUser(userName, Brushes.Red);
 
-        // Calculate the new position
-        double lineHeight = MainEditor.TextArea.TextView.DefaultLineHeight;
-        double yPosition = lineHeight * (columnNumber - 1);
+            // Calculate the new position
+            double lineHeight = MainEditor.TextArea.TextView.DefaultLineHeight;
+            double yPosition = lineHeight * (columnNumber - 1);
 
-        // Update the position of the Grid
-        userGrid.Margin = new Thickness(0, yPosition, 0, 0);
+            // Update the position of the Grid
+            userGrid.Margin = new Thickness(0, yPosition, 0, 0);
+        }).Wait();
     }
 
-    private void AddLockUser(string userName, ISolidColorBrush color)
+    public void UpdateLockedUsers(bool lockingLines = false)
+    {
+        var lockMessage = new byte[1024];
+        _socket.Receive(lockMessage);
+        if (lockMessage[0] == '0') return;
+        var lockMessageString = Encoding.ASCII.GetString(lockMessage);
+        var lockMessageArray = lockMessageString.Split(',');
+
+        foreach (var j in lockMessageArray)
+        {
+            var splitLine = j.Split(' ');
+            var lineNumber = int.Parse(splitLine[0]);
+            if (lineNumber == 0) break;
+            SetLockUserLine(splitLine[1], lineNumber);
+            if (lockingLines) LockParagraph(lineNumber);
+        }
+    }
+
+    private Grid AddLockUser(string userName, ISolidColorBrush color)
     {
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -439,6 +445,7 @@ public partial class Editor : Window
         grid.Children.Add(ellipse);
 
         LockIndicatorsPanel.Children.Add(grid);
+        return grid;
     }
 
     private async void Save_OnClick(object sender, RoutedEventArgs e)

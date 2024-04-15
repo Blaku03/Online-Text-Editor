@@ -38,12 +38,14 @@ public static class ServerListener
                         Console.WriteLine($"Received paragraph {paragraphNumber} with content: {paragraphContent}");
                         editor.LockParagraph(paragraphNumber);
                         editor.UpdateParagraph(paragraphNumber, content);
+                        editor.UpdateLockedUsers();
                         break;
                     case Views.Editor.ProtocolId.UnlockParagraph:
                         paragraphNumber = int.Parse(metadataArray[1]);
                         Console.WriteLine($"Received unlock paragraph {paragraphNumber}");
                         editor.UnlockParagraph(paragraphNumber);
                         editor.UpdateParagraph(paragraphNumber, new StringBuilder(), true);
+                        editor.UpdateLockedUsers();
                         break;
                     case Views.Editor.ProtocolId.AsyncDeleteParagraph:
                         paragraphNumber = int.Parse(metadataArray[1]);

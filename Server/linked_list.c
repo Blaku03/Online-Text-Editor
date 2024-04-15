@@ -151,7 +151,7 @@ void print_list(LinkedList* list) {
     fflush(stdout);//added for debugging because when debugging with GDB printf is buffered
 }
 
-void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id) {
+void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id, char* user_name) {
     pthread_mutex_lock(&list->linked_list_mutex);
     Node* temp = list->head;
     int current_number = 1;
@@ -162,6 +162,7 @@ void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id) {
     if (temp != NULL) {
         temp->locked = 1;
         temp->socket_id = socket_id;
+        temp->user_name = user_name;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
 }
@@ -205,7 +206,7 @@ void parse_file_to_linked_list(LinkedList* list, const char* file_name) {
         return;
     }
 
-    char line[1024]; //TODO: is it enough for paragraph ?? to consider
+    char line[1024];//TODO: is it enough for paragraph ?? to consider
     char last_char;
     while (fgets(line, sizeof(line), file)) {
         insert_after_tail(list, line);
@@ -226,6 +227,8 @@ void free_linked_list(LinkedList* list) {
         Node* next = temp->next;
         free(temp->content);
         temp->content = NULL;
+        free(temp->user_name);
+        temp->user_name = NULL;
         free(temp);
         temp = next;
     }
@@ -244,6 +247,7 @@ void unlock_paragraph(LinkedList* list, int paragraph_number, int socket_id) {
     if (temp != NULL && temp->socket_id == socket_id) {
         temp->locked = 0;
         temp->socket_id = -1;
+        temp->user_name = NULL;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
 }

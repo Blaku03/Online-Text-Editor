@@ -1,6 +1,7 @@
 #include "client_handler.h"
 
 int connected_sockets[MAX_CLIENTS];
+char *user_names[MAX_CLIENTS];
 pthread_mutex_t connected_sockets_mutex;
 
 void *connection_handler(void *args) {
@@ -23,9 +24,12 @@ void *connection_handler(void *args) {
     locked_paragraphs_message = NULL;
 
     recv(sock, client_message, sizeof(client_message), 0);
-    if (strcmp(client_message, "OK") != 0) {
-        fprintf(stderr, "Error: client response not OK\n");
-    }
+    //    if (strcmp(client_message, "OK") != 0) {
+    //        fprintf(stderr, "Error: client response not OK\n");
+    //    }
+    paragraphs->head->user_name = strdup(client_message);
+    modify_username_array(NULL, paragraphs->head->user_name);
+
 
     //    add_socket(sock);             //adding socket to connected_sockets array
     modify_socket_array(-1, sock);
@@ -77,6 +81,7 @@ void *connection_handler(void *args) {
     free(args);
     //    remove_socket(sock);// remove socket from connected_sockets array
     modify_socket_array(sock, -1);
+    modify_username_array(get_user_name_by_socket_id(sock), NULL);
     close(sock);
     pthread_exit(NULL);
 }
@@ -140,7 +145,7 @@ void update_paragraph_protocol(int sock, LinkedList *paragraphs, char *client_me
     char *paragraph_content = NULL;
     switch (protocol_id) {
         case SYNC_PROTOCOL_ID:
-            lock_paragraph(paragraphs, paragraph_number, sock);
+            lock_paragraph(paragraphs, paragraph_number, sock, get_user_name_by_socket_id(sock));
             paragraph_content = edit_content_of_paragraph(paragraphs, paragraph_number, client_message);
             break;
         case UNLOCK_PARAGRAPH_PROTOCOL_ID:
@@ -159,7 +164,7 @@ void update_paragraph_protocol(int sock, LinkedList *paragraphs, char *client_me
     fprintf(stderr, "SocketID: %d, ClientMessage: %s \n", sock, dbg_message);
     fflush(stdout);
     refresh_file(paragraphs, FILE_NAME);
-    broadcast(message, sock);
+    broadcast(message, sock, paragraphs);
 }
 
 void async_protocol_new_paragraph(int sock, LinkedList *paragraphs, char *client_message, int insert_after) {
@@ -173,6 +178,30 @@ void async_protocol_delete_paragraph(int sock, LinkedList *paragraphs, int parag
     //TODO
 }
 
+int safe_strcmp(const char *s1, const char *s2) {
+    if (s1 == NULL) {
+        return s2 == NULL ? 0 : 1;
+    }
+    if (s2 == NULL) {
+        return 1;
+    }
+    return strcmp(s1, s2);
+}
+
+void modify_username_array(char *search_for, char *replace_with) {
+    pthread_mutex_lock(&connected_sockets_mutex);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (safe_strcmp(user_names[i], search_for) == 0) {
+            if (replace_with == NULL) {
+                free(user_names[i]);
+            }
+            user_names[i] = replace_with;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&connected_sockets_mutex);
+}
+
 void modify_socket_array(int search_for, int replace_with) {
     pthread_mutex_lock(&connected_sockets_mutex);
     for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -184,10 +213,14 @@ void modify_socket_array(int search_for, int replace_with) {
     pthread_mutex_unlock(&connected_sockets_mutex);
 }
 
-void broadcast(char *message, int sender) {
+void broadcast(char *message, int sender, LinkedList *paragraphs) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (connected_sockets[i] != -1 && connected_sockets[i] != sender) {
             send(connected_sockets[i], message, strlen(message), 0);
+            usleep(1000);
+            char *lock_status_message = create_message_with_lock_status(paragraphs);
+            send(connected_sockets[i], lock_status_message, strlen(lock_status_message), 0);
+            free(lock_status_message);
         }
     }
 }
@@ -195,12 +228,13 @@ void broadcast(char *message, int sender) {
 char *create_message_with_lock_status(LinkedList *paragraphs) {
     Node *temp = paragraphs->head;
     int current_number_itr = 1;
-    int locked_paragraphs_count = 0;
+    int total_space_to_allocate = 0;
 
     // count the number of locked paragraphs
     while (temp != NULL) {
         if (temp->locked == 1) {
-            locked_paragraphs_count++;
+            total_space_to_allocate++;
+            total_space_to_allocate += sizeof(temp->user_name);
         }
         temp = temp->next;
     }
@@ -208,7 +242,7 @@ char *create_message_with_lock_status(LinkedList *paragraphs) {
 
     // Allocate memory for the message
     // Each number will be at most 10 characters long, plus one for the comma
-    char *message = malloc(locked_paragraphs_count * 11 + 2);// +2 for the "0" and the null terminator
+    char *message = malloc(total_space_to_allocate + 2);// +2 for the "0" and the null terminator
     if (message == NULL) {
         fprintf(stderr, "Error: memory allocation failed\n");
         return NULL;
@@ -217,9 +251,9 @@ char *create_message_with_lock_status(LinkedList *paragraphs) {
     message[0] = '\0';
     while (temp != NULL) {
         if (temp->locked == 1) {
-            char number[11];// Buffer to hold the string representation of the number
-            sprintf(number, "%d,", current_number_itr);
-            strcat(message, number);
+            char mess_buffer[KILOBYTE];
+            sprintf(mess_buffer, "%d %s,", current_number_itr, temp->user_name);
+            strcat(message, mess_buffer);
         }
         temp = temp->next;
         current_number_itr++;
@@ -242,4 +276,13 @@ const char *get_protocol_name(int protocol_id) {
         default:
             return "UNKNOWN PROTOCOL";
     }
+}
+
+char *get_user_name_by_socket_id(int socket_id) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (connected_sockets[i] == socket_id) {
+            return user_names[i];
+        }
+    }
+    return NULL;
 }
