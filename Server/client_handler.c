@@ -52,7 +52,7 @@ void *connection_handler(void *args) {
                 update_paragraph_protocol(sock, paragraphs, client_message, ASYNC_PROTOCOL_ADD_PARAGRAPH_ID);
                 break;
             case ASYNC_PROTOCOL_DELETE_PARAGRAPH_ID:
-                async_protocol_delete_paragraph(sock, paragraphs);
+                async_protocol_delete_paragraph(sock, paragraphs, client_message);
                 break;
             case UNLOCK_PARAGRAPH_PROTOCOL_ID:
                 update_paragraph_protocol(sock, paragraphs, client_message, UNLOCK_PARAGRAPH_PROTOCOL_ID);
@@ -179,10 +179,31 @@ void delete_id_from_client_message(char* client_message, int id){
     memmove(client_message, client_message + digits_of_paragraph_number + 1, strlen(client_message) - digits_of_paragraph_number);
 }
 
-void async_protocol_delete_paragraph(int sock, LinkedList *paragraphs){
-    // temporary hack to remove compilation warning
-    sock++;
-    paragraphs = NULL;
+void async_protocol_delete_paragraph(int sock, LinkedList *paragraphs, char* client_message){
+    int paragraph_number = extract_paragraph_number(client_message);
+    char* content_of_paragraph_to_delete = get_content_of_paragraph(paragraphs, paragraph_number);
+    char* content_of_paragraph_above = get_content_of_paragraph(paragraphs, paragraph_number - 1);
+    content_of_paragraph_above[strcspn(content_of_paragraph_above, "\n")] = '\0'; //trim '\n'
+
+    size_t new_size = strlen(content_of_paragraph_above) + strlen(content_of_paragraph_to_delete) + 1;
+    char *reallocated_content = realloc(content_of_paragraph_above, new_size);
+    if (reallocated_content == NULL) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        return;
+    }
+    content_of_paragraph_above = reallocated_content;
+    strcat(content_of_paragraph_above, content_of_paragraph_to_delete);
+
+    edit_content_of_paragraph(paragraphs, paragraph_number - 1, content_of_paragraph_above);
+    delete_node(paragraphs, paragraph_number);
+
+    // Create the message
+    char message[KILOBYTE];
+    snprintf(message, sizeof(message), "%d,%d", ASYNC_PROTOCOL_DELETE_PARAGRAPH_ID, paragraph_number);
+    fprintf(stderr, "SocketID: %d, ClientMessage: %s \n", sock, message);
+    fflush(stdout);
+    refresh_file(paragraphs, FILE_NAME);
+    broadcast(message, sock);
 }
 
 void add_socket(int socket) {

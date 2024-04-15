@@ -42,7 +42,7 @@ extern pthread_mutex_t connected_sockets_mutex;
 void *connection_handler(void *socket_desc);
 int send_file_to_client(int sock, const char *file_name);
 int get_file_size(FILE *file);
-void async_protocol_delete_paragraph(int sock, LinkedList *paragraphs);
+void async_protocol_delete_paragraph(int sock, LinkedList *paragraphs, char* client_message);
 void update_paragraph_protocol(int sock, LinkedList *paragraphs, char *client_message, int protocol_id);
 void unlock_paragraph_after_mouse_press(int sock, LinkedList *paragraphs, char *client_message);
 int extract_paragraph_number(char* client_message);

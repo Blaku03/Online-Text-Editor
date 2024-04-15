@@ -23,7 +23,7 @@ Node* create_new_node(const char* content);
 int insert_after_tail(LinkedList* list, Node* node);
 int insert_before_head(LinkedList* list, Node* node);
 int insert_after_node_number(LinkedList* list, int node_number, Node* node);
-void delete(LinkedList* list, char* content);
+void delete_node(LinkedList* list, int paragraph_number);
 void print_list(LinkedList* list);
 void edit_content_of_paragraph(LinkedList* list, int paragraph_number, char* new_content);
 void refresh_file(LinkedList* list, const char* file_name);

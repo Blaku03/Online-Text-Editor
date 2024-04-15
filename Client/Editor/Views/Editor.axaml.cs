@@ -19,9 +19,20 @@ public partial class Editor : Window
 {
     private readonly Socket _socket;
     private LinkedList<Paragraph>? Paragraphs { get; set; }
-    private int CaretLine => MainEditor.TextArea.Caret.Line;
-    private int CaretColumn => MainEditor.TextArea.Caret.Column;
+    private int CaretLine
+    {
+        get => MainEditor.TextArea.Caret.Line;
+        set => MainEditor.TextArea.Caret.Line = value;
+    }
+
+    private int CaretColumn
+    {
+        get => MainEditor.TextArea.Caret.Column;
+        set => MainEditor.TextArea.Caret.Column = value;
+    }
+        
     private bool _keyHandled;
+    private int _caretLineWhenMouseIsPressed = 0;
 
     public enum ProtocolId
     {
@@ -47,12 +58,15 @@ public partial class Editor : Window
         MainEditor.AddHandler(InputElement.KeyUpEvent, Text_KeyUp, RoutingStrategies.Tunnel);
         MainEditor.TextArea.AddHandler(InputElement.PointerPressedEvent, TextArea_PointerPressed,
             RoutingStrategies.Tunnel);
+        MainEditor.TextArea.AddHandler(InputElement.PointerReleasedEvent, TextArea_PointerReleased,
+            RoutingStrategies.Tunnel);
 
         // Disable selection of text
         MainEditor.AddHandler(InputElement.PointerMovedEvent,
             (sender, e) => { MainEditor.TextArea.Selection = Selection.Create(MainEditor.TextArea, 0, 0); },
             RoutingStrategies.Tunnel);
     }
+
 
     private async void GetFileFromServer()
     {
@@ -194,11 +208,18 @@ public partial class Editor : Window
 
     private void TextArea_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        _caretLineWhenMouseIsPressed = CaretLine;
+    }
+    private void TextArea_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (CaretLine == _caretLineWhenMouseIsPressed) return; // if mouse was pressed at the same line we already at -> return 
+        
         //protocol for unlocking paragraph when line is switched by mouse
-        var data = $"{(int)ProtocolId.ChangeLineAfterMousePress},{MainEditor.TextArea.Caret.Line}";
+        var data = $"{(int)ProtocolId.ChangeLineAfterMousePress},{_caretLineWhenMouseIsPressed}";
         var buffer = Encoding.ASCII.GetBytes(data);
         _socket.Send(buffer);
     }
+    
 
     private async void Disconnect_OnClick(object sender, RoutedEventArgs e)
     {
@@ -212,8 +233,7 @@ public partial class Editor : Window
 
     private void Text_KeyDown(object? sender, KeyEventArgs e)
     {
-        var currentCaretLine =
-            MainEditor.TextArea.Caret.Line; // remember current line to increment it when enter is pressed
+        var currentCaretLine = CaretLine; // remember current line to increment it when enter is pressed
         if (Paragraphs == null) return;
         if (IsSafeKey(e.Key)) return;
 
@@ -224,7 +244,7 @@ public partial class Editor : Window
         {
             if (caretParagraph.IsLocked)
             {
-                MainEditor.TextArea.Caret.Line += (e.Key == Key.Up) ? -1 : 1;
+                CaretLine += (e.Key == Key.Up) ? -1 : 1;
                 e.Handled = true;
                 return;
             }
@@ -247,14 +267,13 @@ public partial class Editor : Window
 
             AddNewParagraphAfter(CaretLine);
             
-            // TODO: create protocol for sending new paragraph, server must response with 'ok'
             var data = $"{(int)ProtocolId.AsyncNewParagraph},{CaretLine},{caretParagraph.Content}\n";
             var buffer = Encoding.ASCII.GetBytes(data);
             _socket.Send(buffer);
             
             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                MainEditor.TextArea.Caret.Line = currentCaretLine + 1;
+                CaretLine = currentCaretLine + 1;
             });
             e.Handled = true;
             _keyHandled = true;
@@ -281,31 +300,43 @@ public partial class Editor : Window
         // Special handling of deleting
         if (e.Key == Key.Back)
         {
-            if (caretParagraph.Content.Length == 0)
+            if (CaretLine == 1 && CaretColumn == 1)
             {
-                Paragraphs.Remove(caretParagraph);
-                // TODO: async message when we delete paragraph
                 _keyHandled = true;
                 return;
             }
-
-            if (CaretColumn == 0)
+            
+            if (CaretColumn == 1)
             {
-                e.Handled = true;
-                _keyHandled = true;
+                var paragraphAbove = Paragraphs.ElementAt(CaretLine - 2);
+                if (paragraphAbove.IsLocked)
+                {
+                    e.Handled = true;
+                    _keyHandled = true;
+                    _keyHandled = true;
+                    return;
+                };
+                
+                DeleteParagraph(CaretLine);
+                
+                var data = $"{(int)ProtocolId.AsyncDeleteParagraph},{CaretLine}";
+                var buffer = Encoding.ASCII.GetBytes(data);
+                _socket.Send(buffer);
             }
-
+            
             return;
         }
 
         // Disable using del if caret is at the end of the line
         if (e.Key == Key.Delete)
         {
-            if (caretParagraph.Content.Length == CaretColumn)
+            if (caretParagraph.Content.Length + 1 == CaretColumn)
             {
                 e.Handled = true;
                 _keyHandled = true;
             }
+            //TODO: handle del at the end of line, now is turned off
+            // need to ensure line underneath is not locked
         }
     }
     
@@ -320,14 +351,31 @@ public partial class Editor : Window
 
         Paragraphs.AddAfter(currentNode!, newParagraph);
         Refresh();
+        
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (paragraphNumber < CaretLine) CaretLine++; //in case of situations other clients add new line over us
+        });
+        
     }
-
 
     public void LockParagraph(int paragraphNumber)
     {
         Paragraphs!.ElementAt(paragraphNumber - 1).IsLocked = true;
     }
 
+    public void DeleteParagraph(int paragraphNumber)
+    {
+        var paragraphToDelete = Paragraphs!.ElementAt(paragraphNumber - 1);
+        var paragraphAbove = Paragraphs!.ElementAt(paragraphNumber - 2);
+        
+        // concatenate content of paragraph above and paragraph to delete
+        StringBuilder newContent = new();
+        newContent.Append(paragraphAbove.Content);
+        newContent.Append(paragraphToDelete.Content);
+        Paragraphs!.Remove(paragraphToDelete);
+        UpdateParagraph(paragraphNumber - 1, newContent); //update paragraph above
+    }
 
     //handling closing window by 'x'
     protected override async void OnClosing(WindowClosingEventArgs e)
@@ -354,11 +402,11 @@ public partial class Editor : Window
         //Refresh method needs to be called from main UIThread
         Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var caretCopyLine = MainEditor.TextArea.Caret.Line;
-            var caretCopyColumn = MainEditor.TextArea.Caret.Column;
+            var caretCopyLine = CaretLine;
+            var caretCopyColumn = CaretColumn;
             MainEditor.Text = Paragraph.GetContent(Paragraphs);
-            MainEditor.TextArea.Caret.Line = caretCopyLine;
-            MainEditor.TextArea.Caret.Column = caretCopyColumn;
+            CaretLine = caretCopyLine;
+            CaretColumn = caretCopyColumn;
         });
     }
 

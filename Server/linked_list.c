@@ -102,32 +102,27 @@ int insert_before_head(LinkedList* list, Node* node) {
 }
 
 
-void delete(LinkedList* list, char* content) {
+void delete_node(LinkedList* list, int paragraph_number){
     pthread_mutex_lock(&list->linked_list_mutex);
     Node* temp = list->head;
-    Node* prev = NULL;
-
-    while (temp != NULL && strcmp(temp->content, content) != 0) {
-        prev = temp;
+    int current_number = 1;
+    while (temp != NULL && current_number < paragraph_number) {
         temp = temp->next;
+        current_number++;
     }
-
-    if (temp == NULL) {
-        pthread_mutex_unlock(&list->linked_list_mutex);
-        return;
+    if (temp != NULL) {
+        if (temp->previous != NULL) {
+            temp->previous->next = temp->next;
+        } else {
+            list->head = temp->next;
+        }
+        if (temp->next != NULL) {
+            temp->next->previous = temp->previous;
+        } else {
+            list->tail = temp->previous;
+        }
+        free(temp);
     }
-
-    if (prev != NULL) prev->next = temp->next;
-    else
-        list->head = temp->next;
-
-    if (temp->next != NULL) temp->next->previous = prev;
-    else
-        list->tail = prev;
-
-    free(temp->content);
-    temp->content = NULL;
-    free(temp);
     pthread_mutex_unlock(&list->linked_list_mutex);
 }
 
@@ -248,7 +243,6 @@ void edit_content_of_paragraph(LinkedList* list, int paragraph_number, char* new
         current_number++;
     }
     if (temp != NULL) {
-        free(temp->content);
         temp->content = strdup(new_content);
     }
     pthread_mutex_unlock(&list->linked_list_mutex);

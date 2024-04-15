@@ -29,7 +29,6 @@ public static class ServerListener
                 var protocolId = (Views.Editor.ProtocolId)int.Parse(metadataArray[0]);
                 string? paragraphContent;
                 StringBuilder? content;
-                Paragraph? current;
                 switch (protocolId)
                 {
                     case Views.Editor.ProtocolId.SyncParagraph:
@@ -50,13 +49,15 @@ public static class ServerListener
                         break;
                     case Views.Editor.ProtocolId.ChangeLineAfterMousePress:
                         paragraphNumber = int.Parse(metadataArray[1]);
-                        current = editor.GetParagraph(paragraphNumber);
+                        var current = editor.GetParagraph(paragraphNumber);
                         content = new StringBuilder(current!.Content.ToString().TrimEnd('\n'));
                         editor.UnlockParagraph(paragraphNumber);
                         editor.UpdateParagraph(paragraphNumber, content);
                         break;
                     case Views.Editor.ProtocolId.AsyncDeleteParagraph:
                         paragraphNumber = int.Parse(metadataArray[1]);
+                        editor.DeleteParagraph(paragraphNumber); //delete paragraph from message
+                        editor.LockParagraph(paragraphNumber - 1); //lock paragraph above
                         break;
                     case Views.Editor.ProtocolId.AsyncNewParagraph:
                         paragraphNumber = int.Parse(metadataArray[1]);
