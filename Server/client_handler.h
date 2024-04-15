@@ -12,11 +12,12 @@
 
 #include "linked_list.h"
 
-//struct for passing as one argument to the connection handler
-typedef struct {
+// struct for passing as one argument to the connection handler
+typedef struct
+{
     int socket_desc;
-    const char *file_name;
-    LinkedList *paragraphs;
+    const char* file_name;
+    LinkedList* paragraphs;
 } connection_handler_args;
 
 typedef enum {
@@ -30,26 +31,29 @@ typedef enum {
 typedef struct sockaddr_in sockaddr_in;
 typedef struct sockaddr sockaddr;
 
-#define FILE_NAME "../example_file.txt"
-#define PORT 5234
-#define MAX_CLIENTS 10
-#define CHUNK_SIZE 1024
+#define FILE_NAME                    "../example_file.txt"
+#define PORT                         5234
+#define MAX_CLIENTS                  10
+#define CHUNK_SIZE                   1024
 #define MAX_NUMBER_SKIPPED_CHECK_INS 3
-#define KILOBYTE 1024
+#define KILOBYTE                     1024
 extern int connected_sockets[MAX_CLIENTS];
 extern pthread_mutex_t connected_sockets_mutex;
 
-void *connection_handler(void *socket_desc);
-int send_file_to_client(int sock, const char *file_name);
-int get_file_size(FILE *file);
-void async_protocol_delete_paragraph(int sock, LinkedList *paragraphs, char* client_message);
-void update_paragraph_protocol(int sock, LinkedList *paragraphs, char *client_message, int protocol_id);
-void unlock_paragraph_after_mouse_press(int sock, LinkedList *paragraphs, char *client_message);
+void* connection_handler(void* socket_desc);
+int send_file_to_client(int sock, const char* file_name);
+int get_file_size(FILE* file);
+void async_protocol_delete_paragraph(
+    int sock, LinkedList* paragraphs, char* client_message);
+void update_paragraph_protocol(
+    int sock, LinkedList* paragraphs, char* client_message, int protocol_id);
+void unlock_paragraph_after_mouse_press(
+    int sock, LinkedList* paragraphs, char* client_message);
 int extract_paragraph_number(char* client_message);
-char *create_message_with_lock_status(LinkedList *paragraphs);
+char* create_message_with_lock_status(LinkedList* paragraphs);
 void add_socket(int socket);
 void remove_socket(int socket);
 void delete_id_from_client_message(char* client_message, int id);
-void broadcast(char *message, int sender);
+void broadcast(char* message, int sender);
 
-#endif//SERVER_CLIENT_HANDLER_H
+#endif  // SERVER_CLIENT_HANDLER_H

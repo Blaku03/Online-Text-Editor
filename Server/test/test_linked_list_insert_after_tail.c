@@ -1,40 +1,79 @@
 #include "../linked_list.h"
 
+Node create_dummy_node() {
+    Node dummy;
+    dummy.content = NULL;
+    dummy.locked = 0;
+    dummy.socket_id = -1;
+    dummy.next = NULL;
+    dummy.previous = NULL;
+    return dummy;
+}
+
 int main(void) {
     LinkedList list;
     list.head = NULL;
     list.tail = NULL;
     pthread_mutex_init(&list.linked_list_mutex, NULL);
-    Node first_node;
-    first_node.content = NULL;
-    first_node.locked = 0;
-    first_node.socket_id = -1;
-    first_node.next = NULL;
-    first_node.previous = NULL;
-    Node second_node;
-    second_node.content = NULL;
-    second_node.locked = 0;
-    second_node.socket_id = -1;
-    second_node.next = NULL;
-    second_node.previous = NULL;
+    Node first_node = create_dummy_node();
+    Node second_node = create_dummy_node();
+    Node third_node = create_dummy_node();
 
-    insert_after_tail(&list, &first_node);
-    if (list.head != &first_node
-    || list.tail != &first_node
-    || list.tail->next != NULL
-    || list.tail->previous != NULL) {
+    // Test case 1
+    if (linked_list_insert_after_tail(&list, &first_node) != 0) {
         pthread_mutex_destroy(&list.linked_list_mutex);
+        printf("Failed test case 1.1\n");
+        return -1;
+    }
+    if (list.head != &first_node || list.tail != &first_node || list.tail->next != NULL ||
+        list.tail->previous != NULL) {
+        pthread_mutex_destroy(&list.linked_list_mutex);
+        printf("Failed test case 1.2\n");
         return -1;
     }
 
-    insert_after_tail(&list, &second_node);
-    if (list.head != &first_node
-    || list.tail != &second_node
-    || list.head->next != &second_node
-    || list.head->previous != NULL
-    || list.tail->next != NULL
-    || list.tail->previous != &first_node) {
+    // Test case 2
+    if (linked_list_insert_after_tail(&list, &second_node) != 0) {
         pthread_mutex_destroy(&list.linked_list_mutex);
+        printf("Failed test case 2.1\n");
+        return -1;
+    }
+    if (list.head != &first_node || list.tail != &second_node ||
+        list.head->next != &second_node || list.head->previous != NULL ||
+        list.tail->next != NULL || list.tail->previous != &first_node) {
+        pthread_mutex_destroy(&list.linked_list_mutex);
+        printf("Failed test case 2.2\n");
+        return -1;
+    }
+
+    // Test case 3
+    if (linked_list_insert_after_tail(&list, NULL) == 0) {
+        pthread_mutex_destroy(&list.linked_list_mutex);
+        printf("Failed test case 3.1\n");
+        return -1;
+    }
+    if (list.tail != &second_node || list.tail->next != NULL) {
+        pthread_mutex_destroy(&list.linked_list_mutex);
+        printf("Failed test case 3.2\n");
+        return -1;
+    }
+
+    // Test case 4
+    if (linked_list_insert_after_tail(NULL, &third_node) == 0) {
+        pthread_mutex_destroy(&list.linked_list_mutex);
+        printf("Failed test case 4.1\n");
+        return -1;
+    }
+    if (third_node.next != NULL || third_node.previous != NULL) {
+        pthread_mutex_destroy(&list.linked_list_mutex);
+        printf("Failed test case 4.2\n");
+        return -1;
+    }
+
+    // Test case 5
+    if (linked_list_insert_after_tail(NULL, NULL) == 0) {
+        pthread_mutex_destroy(&list.linked_list_mutex);
+        printf("Failed test case 5\n");
         return -1;
     }
 

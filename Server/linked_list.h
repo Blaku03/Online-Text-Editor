@@ -4,7 +4,8 @@
 #include <pthread.h>
 #include <stdio.h>
 
-typedef struct Node {
+typedef struct Node
+{
     char* content;
     int locked;
     int socket_id;
@@ -12,30 +13,41 @@ typedef struct Node {
     struct Node* previous;
 } Node;
 
-typedef struct LinkedList {
+typedef struct LinkedList
+{
     Node* head;
     Node* tail;
     pthread_mutex_t linked_list_mutex;
 } LinkedList;
 
-void init_linked_list(LinkedList* list);
-Node* create_new_node(const char* content);
-int insert_after_tail(LinkedList* list, Node* node);
-int insert_before_head(LinkedList* list, Node* node);
-int insert_after_node_number(LinkedList* list, int node_number, Node* node);
-void delete_node(LinkedList* list, int paragraph_number);
-void print_list(LinkedList* list);
-void edit_content_of_paragraph(LinkedList* list, int paragraph_number, char* new_content);
+void linked_list_init(LinkedList* list);
+void linked_list_destroy(LinkedList* list);
+void linked_list_print(LinkedList* list);
+// Create a new linked list node allocated on the heap
+// with a copy of the passed content and return a pointer
+// to it on success, otherwise return NULL.
+Node* linked_list_create_node(const char* content);
+void linked_list_destroy_node(Node* node);
+// Count the number of nodes in the linked list and return it.
+// Return -1 on failure.
+int linked_list_get_length(LinkedList* list);
+// Return 0 on success, otherwise return -1.
+int linked_list_insert_before_head(LinkedList* list, Node* node);
+// Return 0 on success, otherwise return -1.
+int linked_list_insert_after_tail(LinkedList* list, Node* node);
+// Return 0 on success, otherwise return -1.
+int linked_list_insert_after_node_number(LinkedList* list, int node_number, Node* node);
+// Return pointer to removed node on success, otherwise return NULL.
+Node* linked_list_remove_node(LinkedList* list, int paragraph_number);
+void edit_content_of_paragraph(
+    LinkedList* list, int paragraph_number, const char* new_content);
 void refresh_file(LinkedList* list, const char* file_name);
 int get_socket_id(LinkedList* list, int paragraph_number);
 int is_locked(LinkedList* list, int paragraph_number);
 void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id);
 void unlock_paragraph(LinkedList* list, int paragraph_number, int socket_id);
 void parse_file_to_linked_list(LinkedList* list, const char* file_name);
-void free_linked_list(LinkedList* list);
 char* get_content_of_paragraph(LinkedList* list, int paragraph_number);
 void unlock_paragraph_with_socket_id(LinkedList* list, int socket_id);
-int get_number_of_nodes(LinkedList* list);
 
-
-#endif//SERVER_LINKED_LIST_H
+#endif  // SERVER_LINKED_LIST_H
