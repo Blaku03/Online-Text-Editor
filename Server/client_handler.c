@@ -148,6 +148,7 @@ void update_paragraph_protocol(int sock, LinkedList* paragraphs, char* client_me
     case ASYNC_PROTOCOL_ADD_PARAGRAPH_ID:
         unlock_paragraph(paragraphs, paragraph_number, sock);
         linked_list_insert_after_node_number(paragraphs, paragraph_number, linked_list_create_node("\n"));
+        paragraph_content = edit_content_of_paragraph(paragraphs, paragraph_number, client_message);
         lock_paragraph(paragraphs, paragraph_number + 1, sock, get_user_name_by_socket_id(sock));
         break;
     }
