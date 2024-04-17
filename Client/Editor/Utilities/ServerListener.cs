@@ -25,7 +25,7 @@ public static class ServerListener
             Console.WriteLine($"Received message: {message}");
             try
             {
-                var metadataArray = message.Split(',');
+                var metadataArray = message.Split(',', 3);
                 var protocolId = (Views.Editor.ProtocolId)int.Parse(metadataArray[0]);
                 switch (protocolId)
                 {

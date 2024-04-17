@@ -71,7 +71,23 @@ void* connection_handler(void* args) {
         memset(client_message, 0, CHUNK_SIZE);
     }
 
-    unlock_paragraph_with_socket_id(paragraphs, sock);
+
+
+    int unlocked_paragraph = unlock_paragraph_with_socket_id(paragraphs, sock);
+    if(unlocked_paragraph != -1){
+        char message[KILOBYTE];
+        char dbg_message[KILOBYTE];
+        snprintf(message, sizeof(message), "%d,%d,%s",UNLOCK_PARAGRAPH_PROTOCOL_ID, unlocked_paragraph + 1, "");
+        snprintf(
+            dbg_message,
+            sizeof(message),
+            "%s,%d,%s",
+            get_protocol_name(UNLOCK_PARAGRAPH_PROTOCOL_ID),
+            unlocked_paragraph + 1,
+            "");
+        printf("%s", dbg_message);
+        broadcast(message, sock, paragraphs);
+    }
     // TODO: create protocol to unlock paragraph with socket_id when disconnecting
     fprintf(stderr, "Client disconnected\n");
 

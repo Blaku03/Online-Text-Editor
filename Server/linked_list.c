@@ -335,15 +335,20 @@ char* get_content_of_paragraph(LinkedList* list, int paragraph_number) {
     return NULL;
 }
 
-void unlock_paragraph_with_socket_id(LinkedList* list, int socket_id) {
+int unlock_paragraph_with_socket_id(LinkedList* list, int socket_id) {
     pthread_mutex_lock(&list->linked_list_mutex);
+    int counter = 0;
     Node* temp = list->head;
     while (temp != NULL) {
         if (temp->socket_id == socket_id) {
             temp->locked = 0;
             temp->socket_id = -1;
+            temp->user_name = NULL;
+            return counter;
         }
         temp = temp->next;
+        counter++;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
+    return -1;
 }
