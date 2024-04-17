@@ -49,10 +49,17 @@ public static class ServerListener
                         break;
                     case Views.Editor.ProtocolId.AsyncDeleteParagraph:
                         paragraphNumber = int.Parse(metadataArray[1]);
+                        editor.DeleteParagraph(paragraphNumber); //delete paragraph from message
+                        editor.LockParagraph(paragraphNumber - 1); //lock paragraph above
                         break;
                     case Views.Editor.ProtocolId.AsyncNewParagraph:
-                        var newParagraphNumber = int.Parse(metadataArray[1]);
-                        var newParagraphContent = metadataArray[2];
+                        paragraphNumber = int.Parse(metadataArray[1]);
+                        paragraphContent = metadataArray[2]; //previous paragraph content to update
+                        content = new StringBuilder(paragraphContent.TrimEnd('\n'));
+                        editor.UnlockParagraph(paragraphNumber); //unlock previous paragraph
+                        editor.UpdateParagraph(paragraphNumber, content); //update content of previous paragraph
+                        editor.AddNewParagraphAfter(paragraphNumber); //add new paragraph
+                        editor.LockParagraph(paragraphNumber + 1); //lock new paragraph
                         break;
                 }
             }

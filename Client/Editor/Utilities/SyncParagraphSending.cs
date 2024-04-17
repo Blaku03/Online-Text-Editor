@@ -41,7 +41,6 @@ public static class SyncParagraphSending
                     LastSentParagraphs[currentParagraph.Id] = content;
                 }
             }
-
             await Task.Delay(500, cancellationToken);
         }
     }
