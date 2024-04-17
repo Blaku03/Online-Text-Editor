@@ -24,6 +24,7 @@ public partial class Editor : Window
 {
     private readonly Socket _socket;
     private readonly string _userName;
+    private int _longestUsername = 0;
     private LinkedList<Paragraph>? Paragraphs { get; set; }
 
     public int CaretLine
@@ -121,6 +122,7 @@ public partial class Editor : Window
         await _socket.SendAsync(Encoding.ASCII.GetBytes(_userName));
 
         AddLockUser(_userName, Brushes.Red);
+        _longestUsername = Math.Max(_longestUsername, _userName.Length);
 
         // starting thread for sync sending paragraphs to the server
         Thread synchronousParagraphSending = new(() =>
@@ -209,7 +211,6 @@ public partial class Editor : Window
         var data = $"{(int)ProtocolId.UnlockParagraph},{CaretLine}";
         var buffer = Encoding.ASCII.GetBytes(data);
         _socket.Send(buffer);
-        SetLockUserLine(_userName, CaretLine);
     }
 
     private async void Disconnect_OnClick(object sender, RoutedEventArgs e)
@@ -420,6 +421,7 @@ public partial class Editor : Window
 
     private void SetLockUserLine(string userName, int rowNumber)
     {
+        _longestUsername = Math.Max(_longestUsername, userName.Length);
         // Find the Grid for the user
         Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -438,8 +440,31 @@ public partial class Editor : Window
             userGrid ??= AddLockUser(userName, Brushes.Red);
 
             // Calculate the new position
-            double lineHeight = MainEditor.TextArea.TextView.DefaultLineHeight;
-            double yPosition = lineHeight * (rowNumber - 1);
+            var lineHeight = MainEditor.TextArea.TextView.DefaultLineHeight;
+            var characterWidth = MainEditor.TextArea.TextView.WideSpaceWidth;
+            var windowWidth = this.Width;
+            const double baseSidebarWidth = 21.207757339;
+            var sidebarWidth = baseSidebarWidth * _longestUsername;
+            var charactersPerLine = (windowWidth - sidebarWidth) / characterWidth;
+            var wrappedLines = 0;
+
+            for (var i = 0; i < CaretLine; i++)
+            {
+                var currentParagraphLength = Paragraphs!.ElementAt(i).Content.Length;
+                if (i == CaretLine - 1)
+                {
+                    currentParagraphLength = CaretColumn;
+                }
+
+                if (currentParagraphLength > charactersPerLine)
+                {
+                    wrappedLines += (int)Math.Round(currentParagraphLength / charactersPerLine);
+                }
+
+                wrappedLines++;
+            }
+
+            var yPosition = lineHeight * (wrappedLines - 1);
 
             // Update the position of the Grid
             userGrid.Margin = new Thickness(0, yPosition, 0, 0);
