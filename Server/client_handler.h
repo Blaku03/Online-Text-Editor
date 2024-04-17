@@ -33,9 +33,9 @@ typedef struct sockaddr sockaddr;
 #define FILE_NAME                    "../example_file.txt"
 #define PORT                         5234
 #define MAX_CLIENTS                  10
-#define CHUNK_SIZE                   1024
+#define KILOBYTE                     10024
+#define CHUNK_SIZE                   KILOBYTE
 #define MAX_NUMBER_SKIPPED_CHECK_INS 3
-#define KILOBYTE                     1024
 extern int connected_sockets[MAX_CLIENTS];
 extern char* user_names[MAX_CLIENTS];
 extern pthread_mutex_t connected_sockets_mutex;

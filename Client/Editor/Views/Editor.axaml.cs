@@ -79,7 +79,7 @@ public partial class Editor : Window
     private async void GetFileFromServer()
     {
         // Firstly get metadata from server
-        var metadata = new byte[1024];
+        var metadata = new byte[10024];
         await _socket.ReceiveAsync(metadata);
         var metadataString = Encoding.ASCII.GetString(metadata);
         // Parsing the metadata
@@ -418,7 +418,7 @@ public partial class Editor : Window
         Paragraphs!.ElementAt(paragraphNumber - 1).IsLocked = false;
     }
 
-    private void SetLockUserLine(string userName, int columnNumber)
+    private void SetLockUserLine(string userName, int rowNumber)
     {
         // Find the Grid for the user
         Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
@@ -439,7 +439,7 @@ public partial class Editor : Window
 
             // Calculate the new position
             double lineHeight = MainEditor.TextArea.TextView.DefaultLineHeight;
-            double yPosition = lineHeight * (columnNumber - 1);
+            double yPosition = lineHeight * (rowNumber - 1);
 
             // Update the position of the Grid
             userGrid.Margin = new Thickness(0, yPosition, 0, 0);
@@ -448,7 +448,7 @@ public partial class Editor : Window
 
     public void UpdateLockedUsers(bool lockingLines = false)
     {
-        var lockMessage = new byte[1024];
+        var lockMessage = new byte[10024];
         _socket.Receive(lockMessage);
         if (lockMessage[0] == '0') return;
         var lockMessageString = Encoding.ASCII.GetString(lockMessage);

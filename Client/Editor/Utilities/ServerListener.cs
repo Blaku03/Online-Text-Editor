@@ -11,7 +11,7 @@ public static class ServerListener
     public static async Task ListenServer(Socket socketToListen, Views.Editor editor,
         CancellationToken cancellationToken)
     {
-        var buffer = new byte[1024];
+        var buffer = new byte[10024];
 
         while (true)
         {
