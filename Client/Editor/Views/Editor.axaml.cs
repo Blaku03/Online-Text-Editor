@@ -61,6 +61,7 @@ public partial class Editor : Window
         InitializeComponent();
         _socket = socket;
         _userName = userName;
+        this.CanResize = false;
         GetFileFromServer();
         MainEditor.AddHandler(InputElement.KeyDownEvent, Text_KeyDown, RoutingStrategies.Tunnel);
         MainEditor.AddHandler(InputElement.KeyUpEvent, Text_KeyUp, RoutingStrategies.Tunnel);
@@ -375,7 +376,7 @@ public partial class Editor : Window
     {
         if (Paragraphs == null) return;
         if (IsSafeKey(e.Key)) return;
-        if (e.Key is Key.Up or Key.Down)
+        if (e.Key is Key.Up or Key.Down or Key.Enter or Key.Back)
         {
             SetLockUserLine(_userName, CaretLine);
             return;
@@ -448,13 +449,13 @@ public partial class Editor : Window
             var charactersPerLine = (windowWidth - sidebarWidth) / characterWidth;
             var wrappedLines = 0;
 
-            for (var i = 0; i < CaretLine; i++)
+            for (var i = 0; i < rowNumber - 1; i++)
             {
                 var currentParagraphLength = Paragraphs!.ElementAt(i).Content.Length;
-                if (i == CaretLine - 1)
-                {
-                    currentParagraphLength = CaretColumn;
-                }
+                // if (i == rowNumber - 1)
+                // {
+                //     currentParagraphLength = CaretColumn;
+                // }
 
                 if (currentParagraphLength > charactersPerLine)
                 {
@@ -464,20 +465,39 @@ public partial class Editor : Window
                 wrappedLines++;
             }
 
-            var yPosition = lineHeight * (wrappedLines - 1);
+            var yPosition = lineHeight * wrappedLines;
 
             // Update the position of the Grid
             userGrid.Margin = new Thickness(0, yPosition, 0, 0);
         }).Wait();
     }
 
-    public void UpdateLockedUsers(bool lockingLines = false)
+    private void DeleteLockedUsersWithoutMe()
+    {
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            foreach (var control in LockIndicatorsPanel.Children)
+            {
+                var grid = (Grid)control;
+                var textBlock = grid.Children.OfType<TextBlock>().FirstOrDefault();
+                if (textBlock != null && textBlock.Text != _userName)
+                {
+                    LockIndicatorsPanel.Children.Remove(grid);
+                }
+            }
+        });
+    }
+
+
+    public void UpdateLockedUsers(bool lockingLines = false, bool deletes = false)
     {
         var lockMessage = new byte[10024];
         _socket.Receive(lockMessage);
         if (lockMessage[0] == '0') return;
         var lockMessageString = Encoding.ASCII.GetString(lockMessage);
         var lockMessageArray = lockMessageString.Split(',');
+
+        if (deletes) DeleteLockedUsersWithoutMe();
 
         foreach (var j in lockMessageArray)
         {

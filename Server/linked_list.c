@@ -58,6 +58,7 @@ Node* linked_list_create_node(const char* content) {
     new_node->content = content_copy;
     new_node->locked = 0;
     new_node->socket_id = -1;
+    new_node->user_name = NULL;
     new_node->next = NULL;
     new_node->previous = NULL;
     return new_node;

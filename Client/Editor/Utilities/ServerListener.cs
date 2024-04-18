@@ -45,12 +45,13 @@ public static class ServerListener
                         Console.WriteLine($"Received unlock paragraph {paragraphNumber}");
                         editor.UnlockParagraph(paragraphNumber);
                         editor.UpdateParagraph(paragraphNumber, new StringBuilder(), true);
-                        editor.UpdateLockedUsers();
+                        editor.UpdateLockedUsers(deletes: true);
                         break;
                     case Views.Editor.ProtocolId.AsyncDeleteParagraph:
                         paragraphNumber = int.Parse(metadataArray[1]);
                         editor.DeleteParagraph(paragraphNumber); //delete paragraph from message
                         editor.LockParagraph(paragraphNumber - 1); //lock paragraph above
+                        editor.UpdateLockedUsers();
                         break;
                     case Views.Editor.ProtocolId.AsyncNewParagraph:
                         paragraphNumber = int.Parse(metadataArray[1]);
@@ -60,6 +61,7 @@ public static class ServerListener
                         editor.UpdateParagraph(paragraphNumber, content); //update content of previous paragraph
                         editor.AddNewParagraphAfter(paragraphNumber); //add new paragraph
                         editor.LockParagraph(paragraphNumber + 1); //lock new paragraph
+                        editor.UpdateLockedUsers(deletes: true);
                         break;
                 }
             }
