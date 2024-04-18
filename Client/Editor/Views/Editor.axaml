@@ -6,30 +6,39 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Editor.Views.Editor"
         Title="Editor">
+    
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" /> <!-- Menu -->
-            <RowDefinition Height="*" />    <!-- Content -->
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <Menu Grid.Row="0">
             <MenuItem Header="_File">
-                <MenuItem Header="_New" />
-                <MenuItem Header="_Open" />
-                <MenuItem Header="_Save" />
+                <MenuItem Header="_New" Click="New_OnClick"/>
+                <MenuItem Header="_Open" Click="Open_OnClick"/>
+                <MenuItem Header="_Save" Click="Save_OnClick"/>
                 <MenuItem Header="_Disconnect" Click="Disconnect_OnClick"></MenuItem>
                 <Separator />
-                <MenuItem Header="_Exit" Click="Exit_OnClick"/>
+                <MenuItem Header="_Exit" Click="Exit_OnClick" />
             </MenuItem>
         </Menu>
 
-        <avaloniaEdit:TextEditor
-            Grid.Row="1"
-            Text="Hello AvaloniaEdit!"
-            WordWrap="True"
-            ShowLineNumbers="True"
-            FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
-            Focusable="True"
-            Name="MainEditor" />
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" /> <!-- Panel z symbolami -->
+                <ColumnDefinition Width="*" />    <!-- Edytor tekstu -->
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0" VerticalAlignment="Top" Name="LockIndicatorsPanel" /> <!-- Panel z symbolami -->
+
+            <avaloniaEdit:TextEditor Grid.Column="1"
+                                     Text="Hello AvaloniaEdit!"
+                                     WordWrap="True"
+                                     ShowLineNumbers="True"
+                                     FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+                                     Focusable="True"
+                                     Name="MainEditor" />
+        </Grid>
     </Grid>
 </Window>

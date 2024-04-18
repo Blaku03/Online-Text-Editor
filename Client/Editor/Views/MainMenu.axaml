@@ -3,25 +3,54 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
         x:Class="Editor.Views.MainMenu"
         Title="MainMenu">
-    <Grid Margin="10">
+    <Window.Styles>
+        <Style Selector="TextBox, Button">
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#2196F3"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock">
+            <Setter Property="Margin" Value="5 10 5 5"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+    </Window.Styles>
+    <Grid Margin="10" VerticalAlignment="Center">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" /> <!-- Username -->
-            <RowDefinition Height="Auto" /> <!-- Email -->
-            <RowDefinition Height="Auto" /> <!-- Password -->
-            <RowDefinition Height="Auto" /> <!-- Remember me -->
-            <RowDefinition Height="Auto" /> <!-- Submit button -->
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" /> 
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
+        
+        <TextBlock Grid.Row="0" Text="WELCOME TO TEXT EDITOR!" FontSize="40" Margin="0,0,10,40" FontWeight="Bold"/>
+        
+        <TextBlock Grid.Row="1" Text="Enter server IP:" />
+        <TextBox Grid.Row="2" Name="IpTextBox" Width="150" />
 
-        <TextBlock Grid.Row="0" Text="Ip" VerticalAlignment="Center" />
-        <TextBox Grid.Row="1" Name="IpTextBox" HorizontalAlignment="Left" Width="150" />
-
-        <TextBlock Grid.Row="2" Text="Port" VerticalAlignment="Center" Margin="0 10 0 0" />
-        <TextBox Grid.Row="3" Name="PortTextBox" HorizontalAlignment="Left" Width="100"
+        <TextBlock Grid.Row="3" Text="Enter port number:"  Margin="0 10 0 0" />
+        <TextBox Grid.Row="4" Name="PortTextBox" Width="100"
                  TextChanging="PortTextBox_OnTextInput" />
-
-        <Button Grid.Row="4" Content="Connect" Margin="0 10 0 0" Click="Connect_OnClick"></Button>
+        
+        <TextBlock Grid.Row="5" Text="Enter your username:" Margin="0 10 0 0" />
+        <TextBox Grid.Row="6" Name="UserNameBox" Width="100"
+                 TextChanging="UserNameBox_OnTextInput" />
+        <Button Grid.Row="7" Content="Connect" Margin="0 10 0 0" Click="Connect_OnClick"></Button>
     </Grid>
 
 </Window>

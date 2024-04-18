@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,10 +7,12 @@ namespace Editor.Utilities;
 
 public class Paragraph
 {
-    internal StringBuilder Content { get; init; } = new();
+    internal StringBuilder Content { get; set; } = new();
     public bool IsLocked { get; set; }
 
     private const string LockedString = " (locked)";
+
+    public Guid Id { get; } = Guid.NewGuid();
 
     public static LinkedList<Paragraph> GenerateFromText(string fileContent,
         LinkedList<Paragraph>? currentParagraphs = null)
@@ -47,13 +50,19 @@ public class Paragraph
         for (int i = 0; i < paragraphs.Count; i++)
         {
             var currentParagraph = paragraphs.ElementAt(i);
-            content.Append(currentParagraph.Content);
             if (currentParagraph.IsLocked && !currentParagraph.Content.ToString().EndsWith(LockedString))
             {
-                content.Append(LockedString);
+                var contentWithLock = new StringBuilder(currentParagraph.Content.ToString().TrimEnd('\n'));
+                contentWithLock.Append(LockedString);
+                content.Append(contentWithLock);
+            }
+            else
+            {
+                content.Append(currentParagraph.Content);
             }
 
-            if (i + 1 < paragraphs.Count)
+            // Add \n at the end of each paragraph, except the last one
+            if (i != paragraphs.Count - 1)
             {
                 content.Append('\n');
             }
