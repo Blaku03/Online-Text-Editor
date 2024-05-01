@@ -28,6 +28,21 @@ public class DictionaryWordsHighlighter : IHighlightingDefinition
         _dictionary = wordsDictionary;
         MakeRegexFromDictionary();
     }
+    
+    public void AddArrayToDictionary(IEnumerable<string> words)
+    {
+        foreach (var word in words)
+        {
+            _dictionary.Add(word);
+        }
+        MakeRegexFromDictionary();
+    }
+    
+    public void RemoveWordFromDictionary(string word)
+    {
+        _dictionary.Remove(word);
+        MakeRegexFromDictionary();
+    }
 
     public void AddWordToDictionary(string word)
     {

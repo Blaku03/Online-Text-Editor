@@ -6,7 +6,7 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Editor.Views.Editor"
         Title="Editor">
-    
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -15,13 +15,14 @@
 
         <Menu Grid.Row="0">
             <MenuItem Header="_File">
-                <MenuItem Header="_New" Click="New_OnClick"/>
-                <MenuItem Header="_Open" Click="Open_OnClick"/>
-                <MenuItem Header="_Save" Click="Save_OnClick"/>
+                <MenuItem Header="_New" Click="New_OnClick" />
+                <MenuItem Header="_Open" Click="Open_OnClick" />
+                <MenuItem Header="_Save" Click="Save_OnClick" />
                 <MenuItem Header="_Disconnect" Click="Disconnect_OnClick"></MenuItem>
                 <Separator />
                 <MenuItem Header="_Exit" Click="Exit_OnClick" />
             </MenuItem>
+            <MenuItem Header="_Dictionary" Click="OpenDictionarySettings_OnClick" />
         </Menu>
 
         <Grid Grid.Row="1">
