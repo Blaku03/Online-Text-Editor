@@ -75,6 +75,10 @@ public partial class Editor : Window
         MainEditor.AddHandler(InputElement.PointerMovedEvent,
             (sender, e) => { MainEditor.TextArea.Selection = Selection.Create(MainEditor.TextArea, 0, 0); },
             RoutingStrategies.Tunnel);
+        var wordsDictionary = new HashSet<string> { "horse", "batman", "joe" };
+        var highlighter = new DictionaryWordsHighlighter(wordsDictionary);
+        MainEditor.SyntaxHighlighting = highlighter;
+        highlighter.AddWordToDictionary("newWord");
     }
 
 
