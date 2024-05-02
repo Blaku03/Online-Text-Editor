@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
@@ -26,6 +27,7 @@ public partial class Editor : Window
     private readonly string _userName;
     private int _longestUsername = 0;
     private LinkedList<Paragraph>? Paragraphs { get; set; }
+    private readonly DictionaryWordsHighlighter? _highlighter;
 
     public int CaretLine
     {
@@ -62,6 +64,8 @@ public partial class Editor : Window
         _socket = socket;
         _userName = userName;
         this.CanResize = false;
+        _highlighter = new DictionaryWordsHighlighter(new HashSet<string>());
+        MainEditor.SyntaxHighlighting = _highlighter;
         GetFileFromServer();
         MainEditor.AddHandler(InputElement.KeyDownEvent, Text_KeyDown, RoutingStrategies.Tunnel);
         MainEditor.AddHandler(InputElement.KeyUpEvent, Text_KeyUp, RoutingStrategies.Tunnel);
@@ -119,6 +123,11 @@ public partial class Editor : Window
         // Initial lock protocol
         // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
         UpdateLockedUsers(true);
+
+        // Here getting the dictionary string from the server
+        // in this example it will be string array
+        string[] dictionaryArray = ["horse", "batman", "joe"];
+        _highlighter!.AddArrayToDictionary(dictionaryArray);
 
         await _socket.SendAsync(Encoding.ASCII.GetBytes(_userName));
 
@@ -390,7 +399,7 @@ public partial class Editor : Window
         currentParagraph.Content = new StringBuilder(lines[CaretLine - 1]); // update paragraph
     }
 
-    private void Refresh()
+    public void Refresh()
     {
         //Refresh method needs to be called from main UIThread
         Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
@@ -629,5 +638,12 @@ public partial class Editor : Window
             await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to load a new file: {ex.Message}")
                 .ShowWindowAsync();
         }
+    }
+
+    private void OpenDictionarySettings_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (_highlighter == null) throw new Exception("Highlighter is null");
+        var dictionaryWindow = new Dictionary(MainEditor.Text, _highlighter, this);
+        dictionaryWindow.Show();
     }
 }
