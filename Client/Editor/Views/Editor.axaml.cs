@@ -52,7 +52,6 @@ public partial class Editor : Window
         UnlockParagraph,
     }
 
-
     //flags for stopping thread's tasks
     private readonly CancellationTokenSource _cancellationTokenForSyncParagraphSending = new();
     private readonly CancellationTokenSource _cancellationTokenForServerListener = new();
@@ -91,11 +90,12 @@ public partial class Editor : Window
         // Parsing the metadata
         // Server metadata format: file_size,ChunkSize
         var metadataArray = metadataString.Split(',');
-        int fileSize, chunkSize;
+        int fileSize, chunkSize, numberOfConnectedClients;
         try
         {
             fileSize = int.Parse(metadataArray[0]);
             chunkSize = int.Parse(metadataArray[1]);
+            numberOfConnectedClients = int.Parse(metadataArray[2]);
         }
         catch (Exception e)
         {
@@ -103,26 +103,27 @@ public partial class Editor : Window
             return;
         }
 
-        await _socket.SendAsync(Encoding.ASCII.GetBytes("OK"));
-
-        var buffer = new byte[chunkSize];
-        StringBuilder fileContent = new();
-
-        // Receive the file
-        while (fileSize > 0)
+        if (numberOfConnectedClients == 0)
         {
-            var bytesRead = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer));
-            fileSize -= bytesRead;
-            fileContent.Append(Encoding.ASCII.GetString(buffer).Replace("\r\n", "\n"));
+            // TODO: handle file picker dialog
+            // var filePickerWindow = new FilePickerWindow();
+            // ShowDialog(filePickerWindow);
+            //
+            // switch (filePickerWindow.PickedOption)
+            // {
+            //     case 1:
+            //         Console.WriteLine("Custom");
+            //         break;
+            //     case 2:
+            //         Console.WriteLine("default");
+            //         await ReceiveDefaultFileFromServer(chunkSize, fileSize);
+            //         break;
+            // }
         }
-
-        Paragraphs = Paragraph.GenerateFromText(fileContent.ToString());
-
-        OpenFileInEditor();
-
-        // Initial lock protocol
-        // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
-        UpdateLockedUsers(true);
+        else
+        {
+            await ReceiveDefaultFileFromServer(chunkSize, fileSize);
+        }
 
         // Here getting the dictionary string from the server
         // in this example it will be string array
@@ -163,6 +164,30 @@ public partial class Editor : Window
         });
 
         serverListener.Start();
+    }
+
+    private async Task ReceiveDefaultFileFromServer(int chunkSize, int fileSize)
+    {
+        await _socket.SendAsync(Encoding.ASCII.GetBytes("OK"));
+         
+         var buffer = new byte[chunkSize];
+         StringBuilder fileContent = new();
+
+         // Receive the file
+         while (fileSize > 0)
+         {
+             var bytesRead = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer));
+             fileSize -= bytesRead;
+             fileContent.Append(Encoding.ASCII.GetString(buffer).Replace("\r\n", "\n"));
+         }
+
+         Paragraphs = Paragraph.GenerateFromText(fileContent.ToString());
+
+         OpenFileInEditor();
+         // Initial lock protocol
+         // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
+         UpdateLockedUsers(true);
+         Show();   
     }
 
     public Paragraph? GetParagraph(int line)

@@ -1,0 +1,25 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="300"
+        FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+        x:Class="Editor.Views.FilePickerWindow"
+        Title="FilePickerWindow"
+        >
+    
+        <Grid Margin="10" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="You're the first client connected to the server!" FontSize="16" Margin="0,0,10,40" FontWeight="Bold" TextAlignment="Center" Foreground="LightCoral"/>
+                <TextBlock Grid.Row="1" Text="Please choose file you want to edit: " FontSize="12" Margin="0,0,10,10" TextAlignment="Center"/>
+
+                <Button Grid.Row="2" Content="Select a file from your local machine" Click="OpenFilePicker_OnClick" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                <Button Grid.Row="3" Content="Select a default file from the server" Click="SelectDefaultFile_OnClick" HorizontalAlignment="Center"/>
+        </Grid>
+</Window>

@@ -110,34 +110,40 @@ int send_file_to_client(int sock, const char* file_name) {
 
     // Send metadata to the client
     char metadata[KILOBYTE];
-    snprintf(metadata, sizeof(metadata), "%d,%d", get_file_size(file), CHUNK_SIZE);
+    snprintf(metadata, sizeof(metadata), "%d,%d, %d", get_file_size(file), CHUNK_SIZE, get_number_of_connected_clients());
     send(sock, metadata, sizeof(metadata), 0);
 
     // Waiting for confirmation from client
     char client_response[KILOBYTE];
     recv(sock, client_response, sizeof(client_response), 0);
 
-    if (strcmp(client_response, "OK") != 0) {
-        fprintf(stderr, "Error: client response not OK\n");
-        fclose(file);
-        return -1;
-    }
-
-    char data_buffer[CHUNK_SIZE];
-    unsigned long bytes_read;
-    // Fread: read data from file then assign to data_buffer
-    // return value: number of elements read
-    // if return value is 0, it means the end of file
-    while ((bytes_read = fread(data_buffer, 1, sizeof(data_buffer), file)) > 0) {
-        if (send(sock, data_buffer, bytes_read, 0) < 0) {
-            fprintf(stderr, "Error: send failed\n");
-            fclose(file);
-            return -1;
+    // if client wants default file
+    if (strcmp(client_response, "OK") == 0) {
+        char data_buffer[CHUNK_SIZE];
+        unsigned long bytes_read;
+        // Fread: read data from file then assign to data_buffer
+        // return value: number of elements read
+        // if return value is 0, it means the end of file
+        while ((bytes_read = fread(data_buffer, 1, sizeof(data_buffer), file)) > 0) {
+            if (send(sock, data_buffer, bytes_read, 0) < 0) {
+                fprintf(stderr, "Error: send failed\n");
+                fclose(file);
+                return -1;
+            }
         }
+
+        fclose(file);
+        return 0;
+    }
+    // if first client want custom file
+    else if(strcmp(client_response, "SEND_NEW_FILE") == 0){
+
+
     }
 
+    fprintf(stderr, "Error: client response not OK\n");
     fclose(file);
-    return 0;
+    return -1;
 }
 
 int get_file_size(FILE* file) {
@@ -289,6 +295,16 @@ void broadcast(char* message, int sender, LinkedList* paragraphs) {
             free(lock_status_message);
         }
     }
+}
+
+int get_number_of_connected_clients(){
+    int number_of_connected_clients = 0;
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (connected_sockets[i] != -1) {
+            number_of_connected_clients++;
+        }
+    }
+    return number_of_connected_clients;
 }
 
 char* create_message_with_lock_status(LinkedList* paragraphs) {

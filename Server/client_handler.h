@@ -55,5 +55,6 @@ void modify_socket_array(int search_for, int replace_with);
 // Because normal strcmp crashes if one of the strings is NULL
 int safe_strcmp(const char* s1, const char* s2);
 void modify_username_array(char* search_for, char* replace_with);
+int get_number_of_connected_clients();
 
 #endif  // SERVER_CLIENT_HANDLER_H
