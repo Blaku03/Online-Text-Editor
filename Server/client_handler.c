@@ -18,6 +18,8 @@ void* connection_handler(void* args) {
         fprintf(stderr, "Error: sending file failed\n");
     }
 
+//    parse_file_to_linked_list(paragraphs, FILE_NAME);
+
     // sending information which paragraphs are locked when client connects
     char* locked_paragraphs_message = create_message_with_lock_status(paragraphs);
     send(sock, locked_paragraphs_message, strlen(locked_paragraphs_message), 0);
@@ -137,8 +139,10 @@ int send_file_to_client(int sock, const char* file_name) {
     }
     // if first client want custom file
     else if(strcmp(client_response, "SEND_NEW_FILE") == 0){
+        printf("new file detected\n");
 
 
+        return 0;
     }
 
     fprintf(stderr, "Error: client response not OK\n");

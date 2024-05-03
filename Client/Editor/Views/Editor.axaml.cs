@@ -17,6 +17,7 @@ using AvaloniaEdit.Editing;
 using Editor.Utilities;
 using MsBox.Avalonia;
 using MsBox.Avalonia.Enums;
+using Thread = System.Threading.Thread;
 
 
 namespace Editor.Views;
@@ -90,40 +91,42 @@ public partial class Editor : Window
         // Parsing the metadata
         // Server metadata format: file_size,ChunkSize
         var metadataArray = metadataString.Split(',');
-        int fileSize, chunkSize, numberOfConnectedClients;
+        int fileSize, chunkSize, numberOfConnectedClientsInt;
         try
         {
             fileSize = int.Parse(metadataArray[0]);
             chunkSize = int.Parse(metadataArray[1]);
-            numberOfConnectedClients = int.Parse(metadataArray[2]);
+            numberOfConnectedClientsInt = int.Parse(metadataArray[2]);
         }
         catch (Exception e)
         {
             await _socket.SendAsync(Encoding.ASCII.GetBytes("Error getting metadata"));
             return;
         }
-
-        if (numberOfConnectedClients == 0)
-        {
-            // TODO: handle file picker dialog
-            // var filePickerWindow = new FilePickerWindow();
-            // ShowDialog(filePickerWindow);
-            //
-            // switch (filePickerWindow.PickedOption)
-            // {
-            //     case 1:
-            //         Console.WriteLine("Custom");
-            //         break;
-            //     case 2:
-            //         Console.WriteLine("default");
-            //         await ReceiveDefaultFileFromServer(chunkSize, fileSize);
-            //         break;
-            // }
+        
+        
+        Show();
+        if (numberOfConnectedClientsInt == 0)
+        {var filePickerWindow = new FilePickerWindow();
+             await filePickerWindow.ShowDialog(this);
+             switch (filePickerWindow.PickedOption)
+             {
+                 case 1:
+                     Console.WriteLine("Custom");
+                     Console.WriteLine(filePickerWindow.PickedFilePath);
+                     await _socket.SendAsync(Encoding.ASCII.GetBytes("SEND_NEW_FILE"));
+                     break;
+                 case 2:
+                     Console.WriteLine("default");
+                     await ReceiveDefaultFileFromServer(chunkSize, fileSize);
+                     break;
+             }
         }
         else
         {
             await ReceiveDefaultFileFromServer(chunkSize, fileSize);
         }
+
 
         // Here getting the dictionary string from the server
         // in this example it will be string array
@@ -169,6 +172,7 @@ public partial class Editor : Window
     private async Task ReceiveDefaultFileFromServer(int chunkSize, int fileSize)
     {
         await _socket.SendAsync(Encoding.ASCII.GetBytes("OK"));
+        Console.WriteLine("test");
          
          var buffer = new byte[chunkSize];
          StringBuilder fileContent = new();
@@ -187,7 +191,6 @@ public partial class Editor : Window
          // Initial lock protocol
          // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
          UpdateLockedUsers(true);
-         Show();   
     }
 
     public Paragraph? GetParagraph(int line)
