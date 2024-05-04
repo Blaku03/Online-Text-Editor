@@ -16,7 +16,6 @@
 typedef struct
 {
     int socket_desc;
-    const char* file_name;
     LinkedList* paragraphs;
 } connection_handler_args;
 
@@ -30,19 +29,21 @@ typedef enum {
 typedef struct sockaddr_in sockaddr_in;
 typedef struct sockaddr sockaddr;
 
-#define FILE_NAME                    "../example_file.txt"
+#define FILE_NAME                    "../default_file.txt"
+#define CUSTOM_FILE                  "../client_file.txt"
 #define PORT                         5234
 #define MAX_CLIENTS                  10
 #define KILOBYTE                     10024
 #define CHUNK_SIZE                   KILOBYTE
 #define MAX_NUMBER_SKIPPED_CHECK_INS 3
 extern int connected_sockets[MAX_CLIENTS];
+extern int edit_custom_file;
 extern char* user_names[MAX_CLIENTS];
 extern pthread_mutex_t connected_sockets_mutex;
 
 void* connection_handler(void* socket_desc);
-int send_file_to_client(int sock, const char* file_name);
-int get_file_size(FILE* file);
+int send_file_to_client(int sock, const char* file_name, LinkedList* Paragraphs);
+int get_file_size(const char* filename);
 void async_protocol_delete_paragraph(int sock, LinkedList* paragraphs, char* client_message);
 void update_paragraph_protocol(int sock, LinkedList* paragraphs, char* client_message, int protocol_id);
 int extract_paragraph_number(char* client_message);

@@ -3,25 +3,50 @@
 
 int connected_sockets[MAX_CLIENTS];
 char* user_names[MAX_CLIENTS];
+int edit_custom_file = 0;
 pthread_mutex_t connected_sockets_mutex;
 
 void* connection_handler(void* args) {
     // casting args
     connection_handler_args* actual_args = (connection_handler_args*)args;
     int sock = actual_args->socket_desc;
-    const char* file_name = actual_args->file_name;
     LinkedList* paragraphs = actual_args->paragraphs;
 
     char client_message[CHUNK_SIZE];
 
-    if (send_file_to_client(sock, file_name) < 0) {
-        fprintf(stderr, "Error: sending file failed\n");
-    }
+    // TODO: there should be different protocol only
+    // for sending number of connected clients but it didn't work
+    // when I put it into editor's constructor (if we have time, I can fix it)
 
-//    parse_file_to_linked_list(paragraphs, FILE_NAME);
+
+    char* file_name = edit_custom_file ? CUSTOM_FILE : FILE_NAME;
+    // send_file_to_client returns:
+    // 0 if client wants default file
+    // 1 if client wants custom file
+    // -1 if sending file failed
+    switch(send_file_to_client(sock, file_name, paragraphs)){
+        // first client chose default file
+        case 0:
+            printf("Client has chosen default file\n");
+            edit_custom_file = 0;
+            break;
+        // first client chose custom file
+        case 1:
+            printf("Client has chosen custom file\n");
+            edit_custom_file = 1;
+            break;
+        // new client connected to opened file
+        case 3:
+            printf("New client connected to opened file\n");
+            break;
+        default:
+            fprintf(stderr, "Error: sending file failed\n");
+            break;
+    }
 
     // sending information which paragraphs are locked when client connects
     char* locked_paragraphs_message = create_message_with_lock_status(paragraphs);
+    printf("%s", locked_paragraphs_message);
     send(sock, locked_paragraphs_message, strlen(locked_paragraphs_message), 0);
     free(locked_paragraphs_message);
     locked_paragraphs_message = NULL;
@@ -67,13 +92,13 @@ void* connection_handler(void* args) {
         case UNLOCK_PARAGRAPH_PROTOCOL_ID:
             update_paragraph_protocol(sock, paragraphs, client_message, UNLOCK_PARAGRAPH_PROTOCOL_ID);
             break;
+        default:
+            fprintf(stderr, "Error: protocol ID is wrong");
+            break;
         }
-
         /* Clear the message buffer */
         memset(client_message, 0, CHUNK_SIZE);
     }
-
-
 
     int unlocked_paragraph = unlock_paragraph_with_socket_id(paragraphs, sock);
     if(unlocked_paragraph != -1){
@@ -90,7 +115,6 @@ void* connection_handler(void* args) {
         printf("%s", dbg_message);
         broadcast(message, sock, paragraphs);
     }
-    // TODO: create protocol to unlock paragraph with socket_id when disconnecting
     fprintf(stderr, "Client disconnected\n");
 
     // Free the socket pointer
@@ -102,25 +126,56 @@ void* connection_handler(void* args) {
     pthread_exit(NULL);
 }
 
-int send_file_to_client(int sock, const char* file_name) {
-    // Open the file
-    FILE* file = fopen(file_name, "r");
-    if (file == NULL) {
-        fprintf(stderr, "Error: file not found\n");
-        return -1;
-    }
+int send_file_to_client(int sock, const char* file_name, LinkedList* Paragraphs) {
+    FILE *file = NULL;
 
     // Send metadata to the client
     char metadata[KILOBYTE];
-    snprintf(metadata, sizeof(metadata), "%d,%d, %d", get_file_size(file), CHUNK_SIZE, get_number_of_connected_clients());
+    int number_of_connected_clients = get_number_of_connected_clients();
+    snprintf(metadata, sizeof(metadata), "%d,%d,%d", get_file_size(file_name), CHUNK_SIZE, number_of_connected_clients);
     send(sock, metadata, sizeof(metadata), 0);
 
     // Waiting for confirmation from client
     char client_response[KILOBYTE];
     recv(sock, client_response, sizeof(client_response), 0);
 
-    // if client wants default file
+    // code for rest of clients
+    if(number_of_connected_clients!=0){
+        if(strcmp(client_response, "OK") == 0){
+            char* chosen_filename = edit_custom_file ? CUSTOM_FILE : FILE_NAME;
+            file = fopen(chosen_filename, "r");
+            if (file == NULL) {
+                fprintf(stderr, "Error: file not found\n");
+                return -1;
+            }
+            char data_buffer[CHUNK_SIZE];
+            unsigned long bytes_read;
+            while ((bytes_read = fread(data_buffer, 1, sizeof(data_buffer), file)) > 0) {
+                if (send(sock, data_buffer, bytes_read, 0) < 0) {
+                    fprintf(stderr, "Error: send failed\n");
+                    fclose(file);
+                    return -1;
+                }
+            }
+            fclose(file);
+            return 3;
+        }
+        else{
+            fprintf(stderr, "Error: client response not OK\n");
+            return -1;
+        }
+
+    }
+
+    // code for first client only
     if (strcmp(client_response, "OK") == 0) {
+        // first client wants default file
+        parse_file_to_linked_list(Paragraphs, file_name);
+        file = fopen(file_name, "r");
+        if (file == NULL) {
+            fprintf(stderr, "Error: file not found\n");
+            return -1;
+        }
         char data_buffer[CHUNK_SIZE];
         unsigned long bytes_read;
         // Fread: read data from file then assign to data_buffer
@@ -141,8 +196,41 @@ int send_file_to_client(int sock, const char* file_name) {
     else if(strcmp(client_response, "SEND_NEW_FILE") == 0){
         printf("new file detected\n");
 
+        // receiving metadata about custom file from client
+        char buf[KILOBYTE];
+        recv(sock, buf, sizeof(buf), 0);
+        int file_size, chunk_size;
+        char *new_filename = NULL;
+        if (sscanf(buf, "%d,%d,%s", &file_size, &chunk_size, new_filename) != 2) {
+            fprintf(stderr, "Error: could not parse metadata\n");
+        } else {
+            printf("Received metadata: first_integer = %d, second_integer = %d, file_name = %s\n", file_size, chunk_size, new_filename);
+        }
 
-        return 0;
+        // receiving file from client
+        file = fopen(CUSTOM_FILE, "w");
+        if (file == NULL) {
+            fprintf(stderr, "Error: fileaaaa not found\n");
+            return -1;
+        }
+        char buffer[CHUNK_SIZE];
+        int bytes_received;
+        while (file_size > 0) {
+            bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+            if (bytes_received <= 0) {
+                break;
+            }
+            fwrite(buffer, 1, bytes_received, file);
+            file_size -= bytes_received;
+        }
+
+        fclose(file);
+
+        // parse file to linked list
+        parse_file_to_linked_list(Paragraphs,CUSTOM_FILE);
+        refresh_file(Paragraphs,CUSTOM_FILE);
+
+        return 1;
     }
 
     fprintf(stderr, "Error: client response not OK\n");
@@ -150,10 +238,12 @@ int send_file_to_client(int sock, const char* file_name) {
     return -1;
 }
 
-int get_file_size(FILE* file) {
+int get_file_size(const char* filename) {
+    FILE* file = fopen(filename, "r");
     fseek(file, 0, SEEK_END);  // Move the file pointer to the end of the file
     int size = ftell(file);
     fseek(file, 0, SEEK_SET);  // Move the file pointer to the beginning of the file
+    fclose(file);
     return size;
 }
 
@@ -194,7 +284,10 @@ void update_paragraph_protocol(int sock, LinkedList* paragraphs, char* client_me
         paragraph_content);
     fprintf(stderr, "SocketID: %d, ClientMessage: %s \n", sock, dbg_message);
     fflush(stdout);
-    refresh_file(paragraphs, FILE_NAME);
+
+    if(edit_custom_file) refresh_file(paragraphs, CUSTOM_FILE);
+    else refresh_file(paragraphs, FILE_NAME);
+
     broadcast(message, sock, paragraphs);
 }
 
@@ -250,7 +343,9 @@ void async_protocol_delete_paragraph(int sock, LinkedList* paragraphs, char* cli
     snprintf(message, sizeof(message), "%d,%d", ASYNC_PROTOCOL_DELETE_PARAGRAPH_ID, paragraph_number);
     fprintf(stderr, "SocketID: %d, ClientMessage: %s \n", sock, message);
     fflush(stdout);
-    refresh_file(paragraphs, FILE_NAME);
+
+    if(edit_custom_file) refresh_file(paragraphs, CUSTOM_FILE);
+    else refresh_file(paragraphs, FILE_NAME);
     broadcast(message, sock, paragraphs);
 }
 
