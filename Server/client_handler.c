@@ -503,11 +503,11 @@ void add_known_word(int sock, LinkedList* known_words, char* client_message) {
 
     // broadcast new word to other clients
     char message[KILOBYTE];
-    int message_length = snprintf(message, sizeof(message), "%d,%s", ADD_KNOWN_WORD_PROTOCOL_ID, client_message);
+    int message_length = snprintf(message, sizeof(message), "%d,%s,", ADD_KNOWN_WORD_PROTOCOL_ID, client_message);
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (connected_sockets[i] != -1 && connected_sockets[i] != sock) {
             send(connected_sockets[i], message, message_length, 0);
-            usleep(1000);
         }
     }
+    printf("%s\n", message);
 }

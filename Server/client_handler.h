@@ -18,6 +18,7 @@ typedef struct
     int socket_desc;
     LinkedList* paragraphs;
     LinkedList* known_words;
+    char* file_name;
 } connection_handler_args;
 
 typedef enum {
