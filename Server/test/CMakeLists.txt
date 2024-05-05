@@ -34,3 +34,10 @@ add_executable(test_linked_list_insert_after_node_number
 target_link_libraries(test_linked_list_insert_after_node_number PRIVATE linked_list)
 add_test(NAME test_linked_list_insert_after_node_number
         COMMAND test_linked_list_insert_after_node_number)
+
+# linked_list_get_length
+add_executable(test_linked_list_get_length
+        test_linked_list_get_length.c)
+target_link_libraries(test_linked_list_get_length PRIVATE linked_list)
+add_test(NAME test_linked_list_get_length
+        COMMAND test_linked_list_get_length)
