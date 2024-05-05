@@ -3,6 +3,18 @@
 
 int connected_sockets[MAX_CLIENTS];
 char* user_names[MAX_CLIENTS];
+const char* colors[MAX_CLIENTS] = {
+    "#FFFF0000", // Red
+    "#FF008000", // Green
+    "#FF0000FF", // Blue
+    "#FFFFFF00", // Yellow
+    "#FFFF00FF", // Magenta
+    "#FF00CED1", // Dark Turquoise
+    "#FF800000", // Maroon
+    "#FFFFA500", // Orange
+    "#FF800080", // Purple
+    "#FF2E8B57", // Sea Green
+};
 int edit_custom_file = 0;
 pthread_mutex_t connected_sockets_mutex;
 
@@ -11,6 +23,11 @@ void* connection_handler(void* args) {
     connection_handler_args* actual_args = (connection_handler_args*)args;
     int sock = actual_args->socket_desc;
     LinkedList* paragraphs = actual_args->paragraphs;
+    
+    // sending color to the client
+    int color_index = find_first_available_socket_index(); 
+    const char* client_color = colors[color_index];
+    send(sock, client_color, strlen(client_color), 0);
 
     char client_message[CHUNK_SIZE];
 
@@ -416,6 +433,7 @@ char* create_message_with_lock_status(LinkedList* paragraphs) {
         if (temp->locked == 1) {
             total_space_to_allocate++;
             total_space_to_allocate += sizeof(temp->user_name);
+            total_space_to_allocate += 9;  // +9 for color
         }
         temp = temp->next;
     }
@@ -433,7 +451,7 @@ char* create_message_with_lock_status(LinkedList* paragraphs) {
     while (temp != NULL) {
         if (temp->locked == 1) {
             char mess_buffer[KILOBYTE];
-            sprintf(mess_buffer, "%d %s,", current_number_itr, temp->user_name);
+            sprintf(mess_buffer, "%d %s %s,", current_number_itr, temp->user_name, get_color_by_username(temp->user_name));
             strcat(message, mess_buffer);
         }
         temp = temp->next;
@@ -451,6 +469,33 @@ char* get_user_name_by_socket_id(int socket_id) {
         }
     }
     return NULL;
+}
+
+const char* get_color_by_socket_id(int socket_id) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (connected_sockets[i] == socket_id) {
+            return colors[i];
+        }
+    }
+    return NULL;
+}
+
+const char* get_color_by_username(char* username) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (!safe_strcmp(user_names[i], username)) {
+            return colors[i];
+        }
+    }
+    return NULL;
+}
+
+int find_first_available_socket_index() {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (connected_sockets[i] == -1) {
+            return i;
+        }
+    }
+    return 0;
 }
 
 const char* get_protocol_name(int protocol_id) {
