@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
@@ -16,6 +17,8 @@ using AvaloniaEdit.Editing;
 using Editor.Utilities;
 using MsBox.Avalonia;
 using MsBox.Avalonia.Enums;
+using Path = System.IO.Path;
+using Thread = System.Threading.Thread;
 
 
 namespace Editor.Views;
@@ -26,6 +29,7 @@ public partial class Editor : Window
     private readonly string _userName;
     private int _longestUsername = 0;
     private LinkedList<Paragraph>? Paragraphs { get; set; }
+    private readonly DictionaryWordsHighlighter? _highlighter;
 
     public int CaretLine
     {
@@ -50,7 +54,6 @@ public partial class Editor : Window
         UnlockParagraph,
     }
 
-
     //flags for stopping thread's tasks
     private readonly CancellationTokenSource _cancellationTokenForSyncParagraphSending = new();
     private readonly CancellationTokenSource _cancellationTokenForServerListener = new();
@@ -62,6 +65,8 @@ public partial class Editor : Window
         _socket = socket;
         _userName = userName;
         this.CanResize = false;
+        _highlighter = new DictionaryWordsHighlighter(new HashSet<string>());
+        MainEditor.SyntaxHighlighting = _highlighter;
         GetFileFromServer();
         MainEditor.AddHandler(InputElement.KeyDownEvent, Text_KeyDown, RoutingStrategies.Tunnel);
         MainEditor.AddHandler(InputElement.KeyUpEvent, Text_KeyUp, RoutingStrategies.Tunnel);
@@ -87,38 +92,53 @@ public partial class Editor : Window
         // Parsing the metadata
         // Server metadata format: file_size,ChunkSize
         var metadataArray = metadataString.Split(',');
-        int fileSize, chunkSize;
+        int fileSize, chunkSize, numberOfConnectedClientsInt;
         try
         {
             fileSize = int.Parse(metadataArray[0]);
             chunkSize = int.Parse(metadataArray[1]);
+            numberOfConnectedClientsInt = int.Parse(metadataArray[2]);
         }
         catch (Exception e)
         {
             await _socket.SendAsync(Encoding.ASCII.GetBytes("Error getting metadata"));
             return;
         }
-
-        await _socket.SendAsync(Encoding.ASCII.GetBytes("OK"));
-
-        var buffer = new byte[chunkSize];
-        StringBuilder fileContent = new();
-
-        // Receive the file
-        while (fileSize > 0)
+        
+        Show(); // we need to show editor first to pin dialog to it 
+        if (numberOfConnectedClientsInt == 0) // if it's first client
+        {var filePickerWindow = new FilePickerWindow();
+             await filePickerWindow.ShowDialog(this);
+             switch (filePickerWindow.PickedOption)
+             {
+                 case 1:
+                     Console.WriteLine("Custom");
+                     Console.WriteLine(filePickerWindow.PickedFilePath);
+                     await _socket.SendAsync(Encoding.ASCII.GetBytes("SEND_NEW_FILE"));
+                     var contentOfFile = await SendFileWithMetadata(filePickerWindow.PickedFilePath!);
+                     Paragraphs = Paragraph.GenerateFromText(contentOfFile);
+                     OpenFileInEditor();
+                     break;
+                 case 2:
+                     Console.WriteLine("default");
+                     Console.WriteLine($"{chunkSize}, {fileSize}, {numberOfConnectedClientsInt}");
+                     await ReceiveDefaultFileFromServer(chunkSize, fileSize);
+                     break;
+             }
+        }
+        else // if it's not first client
         {
-            var bytesRead = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer));
-            fileSize -= bytesRead;
-            fileContent.Append(Encoding.ASCII.GetString(buffer).Replace("\r\n", "\n"));
+            await ReceiveDefaultFileFromServer(chunkSize, fileSize);
         }
 
-        Paragraphs = Paragraph.GenerateFromText(fileContent.ToString());
+         // Initial lock protocol
+         // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
+         UpdateLockedUsers(true);
 
-        OpenFileInEditor();
-
-        // Initial lock protocol
-        // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
-        UpdateLockedUsers(true);
+        // Here getting the dictionary string from the server
+        // in this example it will be string array
+        string[] dictionaryArray = ["horse", "batman", "joe"];
+        _highlighter!.AddArrayToDictionary(dictionaryArray);
 
         await _socket.SendAsync(Encoding.ASCII.GetBytes(_userName));
 
@@ -154,6 +174,63 @@ public partial class Editor : Window
         });
 
         serverListener.Start();
+    }
+    
+    // function which sends custom file to the server and returns content of this file
+    private async Task<string> SendFileWithMetadata(string filePath)
+    {
+        var contentOfFile = "";
+        // Open the file
+        await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+
+        // Get the file size
+        var fileSize = (int)fileStream.Length;
+
+        // Define the chunk size
+        var chunkSize = 8192; // 8KB chunks
+        
+        var fileName =  Path.GetFileName(filePath);
+
+        // Create the metadata string
+        var metadata = $"{fileSize},{chunkSize},{fileName}";
+
+        // Convert the metadata to bytes
+        var metadataBytes = Encoding.ASCII.GetBytes(metadata);
+
+        // Send the metadata
+        await _socket.SendAsync(metadataBytes);
+
+        var buffer = new byte[chunkSize];
+        int bytesRead;
+        while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+        {
+            contentOfFile += Encoding.ASCII.GetString(buffer, 0, bytesRead);
+            await _socket.SendAsync(new ArraySegment<byte>(buffer, 0, bytesRead));
+        }
+        
+        return contentOfFile;
+    }
+
+    private async Task ReceiveDefaultFileFromServer(int chunkSize, int fileSize)
+    {
+        await _socket.SendAsync(Encoding.ASCII.GetBytes("OK"));
+        Console.WriteLine("test");
+         
+         var buffer = new byte[chunkSize];
+         StringBuilder fileContent = new();
+
+         // Receive the file
+         while (fileSize > 0)
+         {
+             var bytesRead = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer));
+             fileSize -= bytesRead;
+             fileContent.Append(Encoding.ASCII.GetString(buffer).Replace("\r\n", "\n"));
+             Console.WriteLine(fileContent);
+         }
+
+         Paragraphs = Paragraph.GenerateFromText(fileContent.ToString());
+
+         OpenFileInEditor();
     }
 
     public Paragraph? GetParagraph(int line)
@@ -390,7 +467,7 @@ public partial class Editor : Window
         currentParagraph.Content = new StringBuilder(lines[CaretLine - 1]); // update paragraph
     }
 
-    private void Refresh()
+    public void Refresh()
     {
         //Refresh method needs to be called from main UIThread
         Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
@@ -629,5 +706,12 @@ public partial class Editor : Window
             await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to load a new file: {ex.Message}")
                 .ShowWindowAsync();
         }
+    }
+
+    private void OpenDictionarySettings_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (_highlighter == null) throw new Exception("Highlighter is null");
+        var dictionaryWindow = new Dictionary(MainEditor.Text, _highlighter, this);
+        dictionaryWindow.Show();
     }
 }

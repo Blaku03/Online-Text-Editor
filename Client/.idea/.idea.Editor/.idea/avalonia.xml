@@ -5,9 +5,12 @@
       <map>
         <entry key="Editor/App.axaml" value="Editor/Editor.csproj" />
         <entry key="Editor/Views/Demo.axaml" value="Editor/Editor.csproj" />
+        <entry key="Editor/Views/Dictionary.axaml" value="Editor/Editor.csproj" />
         <entry key="Editor/Views/Editor.axaml" value="Editor/Editor.csproj" />
+        <entry key="Editor/Views/FilePickerWindow.axaml" value="Editor/Editor.csproj" />
         <entry key="Editor/Views/MainMenu.axaml" value="Editor/Editor.csproj" />
         <entry key="Editor/Views/MainWindow.axaml" value="Editor/Editor.csproj" />
+        <entry key="Editor/Views/OpenNewFile.axaml" value="Editor/Editor.csproj" />
       </map>
     </option>
   </component>

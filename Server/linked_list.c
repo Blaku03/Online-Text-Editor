@@ -246,7 +246,7 @@ void parse_file_to_linked_list(LinkedList* list, const char* file_name) {
         return;
     }
 
-    char line[100 * 1024];  // TODO: is it enough for paragraph ?? to consider
+    char line[10240];  // TODO: is it enough for paragraph ?? to consider
     char last_char;
     while (fgets(line, sizeof(line), file)) {
         linked_list_insert_after_tail(list, linked_list_create_node(line));

@@ -9,7 +9,6 @@ void start_server(void) {
     }
     pthread_mutex_init(&connected_sockets_mutex, NULL);
     linked_list_init(paragraphs);
-    parse_file_to_linked_list(paragraphs, FILE_NAME);
 
     for (int i = 0; i < MAX_CLIENTS; i++) {  // Initialize array of connected_sockets
         connected_sockets[i] = -1;
@@ -57,7 +56,6 @@ void start_server(void) {
 
         connection_handler_args* args = malloc(sizeof(connection_handler_args));
         args->socket_desc = connfd;
-        args->file_name = FILE_NAME;
         args->paragraphs = paragraphs;
         pthread_create(&thread_id, NULL, connection_handler, args);
     }
