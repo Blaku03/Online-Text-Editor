@@ -1,6 +1,5 @@
 #include "linked_list.h"
 
-#include <bits/pthreadtypes.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -36,11 +35,7 @@ void linked_list_print(LinkedList* list) {
     }
     Node* temp = list->head;
     while (temp != NULL) {
-        printf(
-            "Content: %s, Locked: %d, SocketID: %d\n",
-            temp->content,
-            temp->locked,
-            temp->socket_id);
+        printf("Content: %s, Locked: %d, SocketID: %d\n", temp->content, temp->locked, temp->socket_id);
         temp = temp->next;
     }
     fflush(stdout);  // added for debugging because when debugging with GDB printf is
@@ -63,6 +58,7 @@ Node* linked_list_create_node(const char* content) {
     new_node->content = content_copy;
     new_node->locked = 0;
     new_node->socket_id = -1;
+    new_node->user_name = NULL;
     new_node->next = NULL;
     new_node->previous = NULL;
     return new_node;
@@ -195,7 +191,7 @@ Node* linked_list_remove_node(LinkedList* list, int paragraph_number) {
     return temp;
 }
 
-void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id) {
+void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id, char* user_name) {
     pthread_mutex_lock(&list->linked_list_mutex);
     Node* temp = list->head;
     int current_number = 1;
@@ -206,6 +202,7 @@ void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id) {
     if (temp != NULL) {
         temp->locked = 1;
         temp->socket_id = socket_id;
+        temp->user_name = user_name;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
 }
@@ -249,7 +246,7 @@ void parse_file_to_linked_list(LinkedList* list, const char* file_name) {
         return;
     }
 
-    char line[1024];  // TODO: is it enough for paragraph ?? to consider
+    char line[100 * 1024];  // TODO: is it enough for paragraph ?? to consider
     char last_char;
     while (fgets(line, sizeof(line), file)) {
         linked_list_insert_after_tail(list, linked_list_create_node(line));
@@ -276,12 +273,12 @@ void unlock_paragraph(LinkedList* list, int paragraph_number, int socket_id) {
     if (temp != NULL && temp->socket_id == socket_id) {
         temp->locked = 0;
         temp->socket_id = -1;
+        temp->user_name = NULL;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
 }
 
-void edit_content_of_paragraph(
-    LinkedList* list, int paragraph_number, const char* new_content) {
+char* edit_content_of_paragraph(LinkedList* list, int paragraph_number, const char* new_content) {
     pthread_mutex_lock(&list->linked_list_mutex);
     Node* temp = list->head;
     int current_number = 1;
@@ -293,6 +290,7 @@ void edit_content_of_paragraph(
         temp->content = strdup(new_content);
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
+    return temp->content;
 }
 
 void refresh_file(LinkedList* list, const char* file_name) {
@@ -342,15 +340,20 @@ char* get_content_of_paragraph(LinkedList* list, int paragraph_number) {
     return NULL;
 }
 
-void unlock_paragraph_with_socket_id(LinkedList* list, int socket_id) {
+int unlock_paragraph_with_socket_id(LinkedList* list, int socket_id) {
     pthread_mutex_lock(&list->linked_list_mutex);
+    int counter = 0;
     Node* temp = list->head;
     while (temp != NULL) {
         if (temp->socket_id == socket_id) {
             temp->locked = 0;
             temp->socket_id = -1;
+            temp->user_name = NULL;
+            return counter;
         }
         temp = temp->next;
+        counter++;
     }
     pthread_mutex_unlock(&list->linked_list_mutex);
+    return -1;
 }

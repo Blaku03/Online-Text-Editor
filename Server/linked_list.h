@@ -7,6 +7,7 @@
 typedef struct Node
 {
     char* content;
+    char* user_name;
     int locked;
     int socket_id;
     struct Node* next;
@@ -39,15 +40,15 @@ int linked_list_insert_after_tail(LinkedList* list, Node* node);
 int linked_list_insert_after_node_number(LinkedList* list, int node_number, Node* node);
 // Return pointer to removed node on success, otherwise return NULL.
 Node* linked_list_remove_node(LinkedList* list, int paragraph_number);
-void edit_content_of_paragraph(
-    LinkedList* list, int paragraph_number, const char* new_content);
+char* edit_content_of_paragraph(LinkedList* list, int paragraph_number, const char* new_content);
 void refresh_file(LinkedList* list, const char* file_name);
 int get_socket_id(LinkedList* list, int paragraph_number);
 int is_locked(LinkedList* list, int paragraph_number);
-void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id);
+void lock_paragraph(LinkedList* list, int paragraph_number, int socket_id, char* user_name);
 void unlock_paragraph(LinkedList* list, int paragraph_number, int socket_id);
 void parse_file_to_linked_list(LinkedList* list, const char* file_name);
 char* get_content_of_paragraph(LinkedList* list, int paragraph_number);
-void unlock_paragraph_with_socket_id(LinkedList* list, int socket_id);
+// Return number of unlocked paragraph, otherwise return -1.
+int unlock_paragraph_with_socket_id(LinkedList* list, int socket_id);
 
 #endif  // SERVER_LINKED_LIST_H

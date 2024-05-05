@@ -7,6 +7,7 @@ void start_server(void) {
         fprintf(stderr, "Error: memory allocation failed\n");
         return;
     }
+    pthread_mutex_init(&connected_sockets_mutex, NULL);
     linked_list_init(paragraphs);
     parse_file_to_linked_list(paragraphs, FILE_NAME);
 

@@ -5,21 +5,29 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.IO;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using AvaloniaEdit.Editing;
 using Editor.Utilities;
 using MsBox.Avalonia;
 using MsBox.Avalonia.Enums;
+
 
 namespace Editor.Views;
 
 public partial class Editor : Window
 {
     private readonly Socket _socket;
+    private readonly string _userName;
+    private int _longestUsername = 0;
     private LinkedList<Paragraph>? Paragraphs { get; set; }
-    private int CaretLine
+
+    public int CaretLine
     {
         get => MainEditor.TextArea.Caret.Line;
         set => MainEditor.TextArea.Caret.Line = value;
@@ -30,9 +38,9 @@ public partial class Editor : Window
         get => MainEditor.TextArea.Caret.Column;
         set => MainEditor.TextArea.Caret.Column = value;
     }
-        
+
     private bool _keyHandled;
-    private int _caretLineWhenMouseIsPressed = 0;
+    private bool _isDisconnected;
 
     public enum ProtocolId
     {
@@ -40,7 +48,6 @@ public partial class Editor : Window
         AsyncNewParagraph,
         AsyncDeleteParagraph,
         UnlockParagraph,
-        ChangeLineAfterMousePress,
     }
 
 
@@ -49,16 +56,19 @@ public partial class Editor : Window
     private readonly CancellationTokenSource _cancellationTokenForServerListener = new();
 
 
-    public Editor(Socket socket)
+    public Editor(Socket socket, string userName)
     {
         InitializeComponent();
         _socket = socket;
+        _userName = userName;
+        this.CanResize = false;
         GetFileFromServer();
         MainEditor.AddHandler(InputElement.KeyDownEvent, Text_KeyDown, RoutingStrategies.Tunnel);
         MainEditor.AddHandler(InputElement.KeyUpEvent, Text_KeyUp, RoutingStrategies.Tunnel);
         MainEditor.TextArea.AddHandler(InputElement.PointerPressedEvent, TextArea_PointerPressed,
             RoutingStrategies.Tunnel);
-        MainEditor.TextArea.AddHandler(InputElement.PointerReleasedEvent, TextArea_PointerReleased,
+        MainEditor.TextArea.AddHandler(InputElement.PointerReleasedEvent,
+            (_, _) => { SetLockUserLine(_userName, CaretLine); },
             RoutingStrategies.Tunnel);
 
         // Disable selection of text
@@ -71,7 +81,7 @@ public partial class Editor : Window
     private async void GetFileFromServer()
     {
         // Firstly get metadata from server
-        var metadata = new byte[1024];
+        var metadata = new byte[10024];
         await _socket.ReceiveAsync(metadata);
         var metadataString = Encoding.ASCII.GetString(metadata);
         // Parsing the metadata
@@ -104,26 +114,16 @@ public partial class Editor : Window
 
         Paragraphs = Paragraph.GenerateFromText(fileContent.ToString());
 
-        // Initial lock protocol 
-        // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
-        var lockMessage = new byte[1024];
-        await _socket.ReceiveAsync(lockMessage);
-        if (lockMessage[0] != '0')
-        {
-            var lockMessageString = Encoding.ASCII.GetString(lockMessage);
-            var lockMessageArray = lockMessageString.Split(',');
-
-            foreach (var j in lockMessageArray)
-            {
-                if (int.Parse(j) == 0) break;
-                var paragraphNumber = int.Parse(j);
-                LockParagraph(paragraphNumber);
-            }
-        }
-
-        await _socket.SendAsync(Encoding.ASCII.GetBytes("OK"));
-
         OpenFileInEditor();
+
+        // Initial lock protocol
+        // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
+        UpdateLockedUsers(true);
+
+        await _socket.SendAsync(Encoding.ASCII.GetBytes(_userName));
+
+        AddLockUser(_userName, Brushes.Red);
+        _longestUsername = Math.Max(_longestUsername, _userName.Length);
 
         // starting thread for sync sending paragraphs to the server
         Thread synchronousParagraphSending = new(() =>
@@ -161,7 +161,6 @@ public partial class Editor : Window
         return Paragraphs?.ElementAt(line - 1);
     }
 
-    public int GetCaretLine() => CaretLine;
 
     private async Task DisconnectFromServer()
     {
@@ -174,6 +173,7 @@ public partial class Editor : Window
                 Paragraphs = null;
                 _socket.Shutdown(SocketShutdown.Both);
                 _socket.Close();
+                _isDisconnected = true;
                 await MessageBoxManager.GetMessageBoxStandard(
                     "Success", "Disconnected from server").ShowWindowAsync();
             }
@@ -192,7 +192,8 @@ public partial class Editor : Window
 
     private void OpenFileInEditor()
     {
-        MainEditor.Text = Paragraph.GetContent(Paragraphs);
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            MainEditor.Text = Paragraph.GetContent(Paragraphs));
     }
 
     private async void Exit_OnClick(object sender, RoutedEventArgs e)
@@ -205,21 +206,13 @@ public partial class Editor : Window
         Close();
     }
 
-
     private void TextArea_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        _caretLineWhenMouseIsPressed = CaretLine;
-    }
-    private void TextArea_PointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (CaretLine == _caretLineWhenMouseIsPressed) return; // if mouse was pressed at the same line we already at -> return 
-        
         //protocol for unlocking paragraph when line is switched by mouse
-        var data = $"{(int)ProtocolId.ChangeLineAfterMousePress},{_caretLineWhenMouseIsPressed}";
+        var data = $"{(int)ProtocolId.UnlockParagraph},{CaretLine}";
         var buffer = Encoding.ASCII.GetBytes(data);
         _socket.Send(buffer);
     }
-    
 
     private async void Disconnect_OnClick(object sender, RoutedEventArgs e)
     {
@@ -227,9 +220,6 @@ public partial class Editor : Window
         new MainMenu().Show();
         Close();
     }
-
-    // TODO: Fix deleting lines
-    // Deleting line only if it's empty and not locked
 
     private void Text_KeyDown(object? sender, KeyEventArgs e)
     {
@@ -266,15 +256,12 @@ public partial class Editor : Window
             }
 
             AddNewParagraphAfter(CaretLine);
-            
+
             var data = $"{(int)ProtocolId.AsyncNewParagraph},{CaretLine},{caretParagraph.Content}\n";
             var buffer = Encoding.ASCII.GetBytes(data);
             _socket.Send(buffer);
-            
-            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                CaretLine = currentCaretLine + 1;
-            });
+
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { CaretLine = currentCaretLine + 1; });
             e.Handled = true;
             _keyHandled = true;
             return;
@@ -305,7 +292,7 @@ public partial class Editor : Window
                 _keyHandled = true;
                 return;
             }
-            
+
             if (CaretColumn == 1)
             {
                 var paragraphAbove = Paragraphs.ElementAt(CaretLine - 2);
@@ -315,15 +302,17 @@ public partial class Editor : Window
                     _keyHandled = true;
                     _keyHandled = true;
                     return;
-                };
-                
+                }
+
+                ;
+
                 DeleteParagraph(CaretLine);
-                
+
                 var data = $"{(int)ProtocolId.AsyncDeleteParagraph},{CaretLine}";
                 var buffer = Encoding.ASCII.GetBytes(data);
                 _socket.Send(buffer);
             }
-            
+
             return;
         }
 
@@ -339,7 +328,7 @@ public partial class Editor : Window
             // need to ensure line underneath is not locked
         }
     }
-    
+
     public void AddNewParagraphAfter(int paragraphNumber)
     {
         var newParagraph = new Paragraph { Content = new StringBuilder() };
@@ -351,12 +340,11 @@ public partial class Editor : Window
 
         Paragraphs.AddAfter(currentNode!, newParagraph);
         Refresh();
-        
+
         Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (paragraphNumber < CaretLine) CaretLine++; //in case of situations other clients add new line over us
         });
-        
     }
 
     public void LockParagraph(int paragraphNumber)
@@ -368,7 +356,7 @@ public partial class Editor : Window
     {
         var paragraphToDelete = Paragraphs!.ElementAt(paragraphNumber - 1);
         var paragraphAbove = Paragraphs!.ElementAt(paragraphNumber - 2);
-        
+
         // concatenate content of paragraph above and paragraph to delete
         StringBuilder newContent = new();
         newContent.Append(paragraphAbove.Content);
@@ -380,7 +368,7 @@ public partial class Editor : Window
     //handling closing window by 'x'
     protected override async void OnClosing(WindowClosingEventArgs e)
     {
-        await DisconnectFromServer();
+        if (!_isDisconnected) await DisconnectFromServer();
         base.OnClosing(e);
     }
 
@@ -388,7 +376,12 @@ public partial class Editor : Window
     {
         if (Paragraphs == null) return;
         if (IsSafeKey(e.Key)) return;
-        if (e.Key is Key.Up or Key.Down) return;
+        if (e.Key is Key.Up or Key.Down or Key.Enter or Key.Back)
+        {
+            SetLockUserLine(_userName, CaretLine);
+            return;
+        }
+
         if (_keyHandled) return;
 
         //updating paragraph content after key is released
@@ -410,9 +403,9 @@ public partial class Editor : Window
         });
     }
 
-    public void UpdateParagraph(int paragraphNumber, StringBuilder newContent)
+    public void UpdateParagraph(int paragraphNumber, StringBuilder newContent, bool refreshOnly = false)
     {
-        Paragraphs!.ElementAt(paragraphNumber - 1).Content = newContent;
+        if (!refreshOnly) Paragraphs!.ElementAt(paragraphNumber - 1).Content = newContent;
         Refresh();
     }
 
@@ -425,5 +418,216 @@ public partial class Editor : Window
     public void UnlockParagraph(int paragraphNumber)
     {
         Paragraphs!.ElementAt(paragraphNumber - 1).IsLocked = false;
+    }
+
+    private void SetLockUserLine(string userName, int rowNumber)
+    {
+        _longestUsername = Math.Max(_longestUsername, userName.Length);
+        // Find the Grid for the user
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            Grid? userGrid = null;
+            foreach (var control in LockIndicatorsPanel.Children)
+            {
+                var grid = (Grid?)control;
+                var textBlock = grid?.Children.OfType<TextBlock>().FirstOrDefault();
+                if (textBlock != null && textBlock.Text == userName)
+                {
+                    userGrid = grid;
+                    break;
+                }
+            }
+
+            userGrid ??= AddLockUser(userName, Brushes.Red);
+
+            // Calculate the new position
+            var lineHeight = MainEditor.TextArea.TextView.DefaultLineHeight;
+            var characterWidth = MainEditor.TextArea.TextView.WideSpaceWidth;
+            var windowWidth = this.Width;
+            const double baseSidebarWidth = 21.207757339;
+            var sidebarWidth = baseSidebarWidth * _longestUsername;
+            var charactersPerLine = (windowWidth - sidebarWidth) / characterWidth;
+            var wrappedLines = 0;
+
+            for (var i = 0; i < rowNumber - 1; i++)
+            {
+                var currentParagraphLength = Paragraphs!.ElementAt(i).Content.Length;
+                // if (i == rowNumber - 1)
+                // {
+                //     currentParagraphLength = CaretColumn;
+                // }
+
+                if (currentParagraphLength > charactersPerLine)
+                {
+                    wrappedLines += (int)Math.Round(currentParagraphLength / charactersPerLine);
+                }
+
+                wrappedLines++;
+            }
+
+            var yPosition = lineHeight * wrappedLines;
+
+            // Update the position of the Grid
+            userGrid.Margin = new Thickness(0, yPosition, 0, 0);
+        }).Wait();
+    }
+
+    private void DeleteLockedUsersWithoutMe()
+    {
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            foreach (var control in LockIndicatorsPanel.Children)
+            {
+                var grid = (Grid)control;
+                var textBlock = grid.Children.OfType<TextBlock>().FirstOrDefault();
+                if (textBlock != null && textBlock.Text != _userName)
+                {
+                    LockIndicatorsPanel.Children.Remove(grid);
+                }
+            }
+        });
+    }
+
+
+    public void UpdateLockedUsers(bool lockingLines = false, bool deletes = false)
+    {
+        var lockMessage = new byte[10024];
+        _socket.Receive(lockMessage);
+        if (lockMessage[0] == '0') return;
+        var lockMessageString = Encoding.ASCII.GetString(lockMessage);
+        var lockMessageArray = lockMessageString.Split(',');
+
+        if (deletes) DeleteLockedUsersWithoutMe();
+
+        foreach (var j in lockMessageArray)
+        {
+            var splitLine = j.Split(' ');
+            var lineNumber = int.Parse(splitLine[0]);
+            if (lineNumber == 0) break;
+            SetLockUserLine(splitLine[1], lineNumber);
+            if (lockingLines) LockParagraph(lineNumber);
+        }
+    }
+
+    private Grid AddLockUser(string userName, ISolidColorBrush color)
+    {
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var textBlock = new TextBlock
+        {
+            Text = userName,
+            FontFamily = new FontFamily("Cascadia Code,Consolas,Menlo,Monospace"),
+            Foreground = Brushes.RoyalBlue,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
+        };
+        Grid.SetColumn(textBlock, 0);
+
+        var ellipse = new Ellipse
+        {
+            Width = 15,
+            Height = 15,
+            Fill = color,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
+        };
+        Grid.SetColumn(ellipse, 1);
+
+        grid.Children.Add(textBlock);
+        grid.Children.Add(ellipse);
+
+        LockIndicatorsPanel.Children.Add(grid);
+        return grid;
+    }
+
+    private async void Save_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (Paragraphs == null)
+        {
+            await MessageBoxManager.GetMessageBoxStandard("Error", "No content to save.").ShowWindowAsync();
+            return;
+        }
+
+        var saveFileDialog = new SaveFileDialog
+        {
+            Title = "Save File",
+            Filters = [new FileDialogFilter() { Name = "Text Files", Extensions = { "txt" } }]
+        };
+
+        var result = await saveFileDialog.ShowAsync(this);
+        if (result != null)
+        {
+            try
+            {
+                await using (var writer = new StreamWriter(result))
+                {
+                    foreach (var paragraph in Paragraphs)
+                    {
+                        await writer.WriteAsync(paragraph.Content.ToString());
+                        await writer.WriteLineAsync();
+                    }
+                }
+
+                await MessageBoxManager.GetMessageBoxStandard("Success", "File saved successfully.").ShowWindowAsync();
+            }
+            catch (Exception ex)
+            {
+                await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to save file: {ex.Message}")
+                    .ShowWindowAsync();
+            }
+        }
+    }
+
+    private async void Open_OnClick(object sender, RoutedEventArgs e)
+    {
+        var openFileDialog = new OpenFileDialog
+        {
+            Title = "Open File",
+            Filters = [new FileDialogFilter() { Name = "Text Files", Extensions = { "txt" } }]
+        };
+
+        var result = await openFileDialog.ShowAsync(this);
+        if (result is { Length: > 0 })
+        {
+            var filePath = result[0]; // first argument is the file path
+            try
+            {
+                await using var stream = File.OpenRead(filePath);
+                using var reader = new StreamReader(stream);
+                var fileContent = await reader.ReadToEndAsync();
+                fileContent = fileContent.Replace("\r\n", "\n");
+                Paragraphs = Paragraph.GenerateFromText(fileContent);
+                OpenFileInEditor();
+                await MessageBoxManager.GetMessageBoxStandard("Success", "File opened successfully.")
+                    .ShowWindowAsync();
+            }
+            catch (Exception ex)
+            {
+                await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to open file: {ex.Message}")
+                    .ShowWindowAsync();
+            }
+        }
+    }
+
+    private async void New_OnClick(object sender, RoutedEventArgs e)
+    {
+        var box = MessageBoxManager.GetMessageBoxStandard("", "Are you sure you want to open a new file?",
+            ButtonEnum.YesNo);
+        var result = await box.ShowAsync();
+        if (result != ButtonResult.Yes) return;
+        try
+        {
+            Paragraphs = new LinkedList<Paragraph>();
+            Paragraphs.AddLast(new Paragraph { Content = new StringBuilder() });
+            OpenFileInEditor();
+            await MessageBoxManager.GetMessageBoxStandard("Success", "New empty file was created.").ShowWindowAsync();
+        }
+        catch (Exception ex)
+        {
+            await MessageBoxManager.GetMessageBoxStandard("Error", $"Failed to load a new file: {ex.Message}")
+                .ShowWindowAsync();
+        }
     }
 }

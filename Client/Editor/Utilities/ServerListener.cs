@@ -11,7 +11,7 @@ public static class ServerListener
     public static async Task ListenServer(Socket socketToListen, Views.Editor editor,
         CancellationToken cancellationToken)
     {
-        var buffer = new byte[1024];
+        var buffer = new byte[10024];
 
         while (true)
         {
@@ -25,39 +25,33 @@ public static class ServerListener
             Console.WriteLine($"Received message: {message}");
             try
             {
-                var metadataArray = message.Split(',');
+                var metadataArray = message.Split(',', 3);
                 var protocolId = (Views.Editor.ProtocolId)int.Parse(metadataArray[0]);
-                string? paragraphContent;
-                StringBuilder? content;
                 switch (protocolId)
                 {
                     case Views.Editor.ProtocolId.SyncParagraph:
                         var paragraphNumber = int.Parse(metadataArray[1]);
-                        paragraphContent = metadataArray[2];
-                        content = new StringBuilder(paragraphContent);
+                        var paragraphContent = metadataArray[2];
+                        var content = new StringBuilder(paragraphContent);
+                        // Remove \n from the end of the content
+                        content.Remove(content.Length - 1, 1);
                         Console.WriteLine($"Received paragraph {paragraphNumber} with content: {paragraphContent}");
                         editor.LockParagraph(paragraphNumber);
                         editor.UpdateParagraph(paragraphNumber, content);
+                        editor.UpdateLockedUsers();
                         break;
                     case Views.Editor.ProtocolId.UnlockParagraph:
                         paragraphNumber = int.Parse(metadataArray[1]);
-                        paragraphContent = metadataArray[2];
-                        content = new StringBuilder(paragraphContent.TrimEnd('\n'));
                         Console.WriteLine($"Received unlock paragraph {paragraphNumber}");
                         editor.UnlockParagraph(paragraphNumber);
-                        editor.UpdateParagraph(paragraphNumber, content);
-                        break;
-                    case Views.Editor.ProtocolId.ChangeLineAfterMousePress:
-                        paragraphNumber = int.Parse(metadataArray[1]);
-                        var current = editor.GetParagraph(paragraphNumber);
-                        content = new StringBuilder(current!.Content.ToString().TrimEnd('\n'));
-                        editor.UnlockParagraph(paragraphNumber);
-                        editor.UpdateParagraph(paragraphNumber, content);
+                        editor.UpdateParagraph(paragraphNumber, new StringBuilder(), true);
+                        editor.UpdateLockedUsers(deletes: true);
                         break;
                     case Views.Editor.ProtocolId.AsyncDeleteParagraph:
                         paragraphNumber = int.Parse(metadataArray[1]);
                         editor.DeleteParagraph(paragraphNumber); //delete paragraph from message
                         editor.LockParagraph(paragraphNumber - 1); //lock paragraph above
+                        editor.UpdateLockedUsers();
                         break;
                     case Views.Editor.ProtocolId.AsyncNewParagraph:
                         paragraphNumber = int.Parse(metadataArray[1]);
@@ -67,6 +61,7 @@ public static class ServerListener
                         editor.UpdateParagraph(paragraphNumber, content); //update content of previous paragraph
                         editor.AddNewParagraphAfter(paragraphNumber); //add new paragraph
                         editor.LockParagraph(paragraphNumber + 1); //lock new paragraph
+                        editor.UpdateLockedUsers(deletes: true);
                         break;
                 }
             }
