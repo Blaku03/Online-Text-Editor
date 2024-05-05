@@ -52,6 +52,7 @@ public partial class Editor : Window
         AsyncNewParagraph,
         AsyncDeleteParagraph,
         UnlockParagraph,
+        AddKnownWord,
     }
 
     //flags for stopping thread's tasks

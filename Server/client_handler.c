@@ -1,5 +1,7 @@
 #include "client_handler.h"
 #include "linked_list.h"
+#include <ctype.h>
+#include <stdio.h>
 
 int connected_sockets[MAX_CLIENTS];
 char* user_names[MAX_CLIENTS];
@@ -11,6 +13,7 @@ void* connection_handler(void* args) {
     connection_handler_args* actual_args = (connection_handler_args*)args;
     int sock = actual_args->socket_desc;
     LinkedList* paragraphs = actual_args->paragraphs;
+    LinkedList* known_words = actual_args->known_words;
 
     char client_message[CHUNK_SIZE];
 
@@ -92,6 +95,9 @@ void* connection_handler(void* args) {
         case UNLOCK_PARAGRAPH_PROTOCOL_ID:
             update_paragraph_protocol(sock, paragraphs, client_message, UNLOCK_PARAGRAPH_PROTOCOL_ID);
             break;
+        case ADD_KNOWN_WORD_PROTOCOL_ID:
+            add_known_word(sock, known_words, client_message);
+            break;
         default:
             fprintf(stderr, "Error: protocol ID is wrong");
             break;
@@ -101,10 +107,11 @@ void* connection_handler(void* args) {
     }
 
     int unlocked_paragraph = unlock_paragraph_with_socket_id(paragraphs, sock);
-    if(unlocked_paragraph != -1){
+    if (unlocked_paragraph != -1) {
         char message[KILOBYTE];
         char dbg_message[KILOBYTE];
-        snprintf(message, sizeof(message), "%d,%d,%s",UNLOCK_PARAGRAPH_PROTOCOL_ID, unlocked_paragraph + 1, "");
+        snprintf(
+            message, sizeof(message), "%d,%d,%s", UNLOCK_PARAGRAPH_PROTOCOL_ID, unlocked_paragraph + 1, "");
         snprintf(
             dbg_message,
             sizeof(message),
@@ -295,6 +302,7 @@ int extract_paragraph_number(char* client_message) {
     int paragraph_number;
     if (sscanf(client_message, "%d", &paragraph_number) != 1) {
         fprintf(stderr, "Error: could not parse paragraph number from message\n");
+        return -1;
     }
 
     // deleting paragraph number based on its length
@@ -463,7 +471,43 @@ const char* get_protocol_name(int protocol_id) {
         return "DELETE PARAGRAPH";
     case UNLOCK_PARAGRAPH_PROTOCOL_ID:
         return "UNLOCK PARAGRAPH";
+    case ADD_KNOWN_WORD_PROTOCOL_ID:
+        return "ADD KNOWN WORD";
     default:
         return "UNKNOWN PROTOCOL";
+    }
+}
+
+void add_known_word(int sock, LinkedList* known_words, char* client_message) {
+    // strip whitespace at the start
+    while (isspace(*client_message) && *client_message != '\0') {
+        client_message++;
+    }
+
+    // strip whitespace at the end
+    char* end = client_message;
+    while (!isspace(*end) && *end != '\0') {
+        client_message++;
+    }
+    *end = '\0';
+
+    // return early if there aren't any non-whitespace characters in the word
+    if (client_message == end) {
+        return;
+    }
+
+    // return early if node creation fails
+    if (linked_list_insert_before_head(known_words, linked_list_create_node(client_message)) == -1) {
+        return;
+    }
+
+    // broadcast new word to other clients
+    char message[KILOBYTE];
+    int message_length = snprintf(message, sizeof(message), "%d,%s", ADD_KNOWN_WORD_PROTOCOL_ID, client_message);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (connected_sockets[i] != -1 && connected_sockets[i] != sock) {
+            send(connected_sockets[i], message, message_length, 0);
+            usleep(1000);
+        }
     }
 }
