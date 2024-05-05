@@ -41,3 +41,10 @@ add_executable(test_linked_list_get_length
 target_link_libraries(test_linked_list_get_length PRIVATE linked_list)
 add_test(NAME test_linked_list_get_length
         COMMAND test_linked_list_get_length)
+
+# linked_list_remove_node
+add_executable(test_linked_list_remove_node
+        test_linked_list_remove_node.c)
+target_link_libraries(test_linked_list_remove_node PRIVATE linked_list)
+add_test(NAME test_linked_list_remove_node
+        COMMAND test_linked_list_remove_node)
