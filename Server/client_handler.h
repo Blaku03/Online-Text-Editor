@@ -57,5 +57,7 @@ void modify_socket_array(int search_for, int replace_with);
 int safe_strcmp(const char* s1, const char* s2);
 void modify_username_array(char* search_for, char* replace_with);
 int get_number_of_connected_clients();
+const char* get_color_by_username(char* username);
+int find_first_available_socket_index();
 
 #endif  // SERVER_CLIENT_HANDLER_H

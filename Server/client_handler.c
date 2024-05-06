@@ -471,15 +471,6 @@ char* get_user_name_by_socket_id(int socket_id) {
     return NULL;
 }
 
-const char* get_color_by_socket_id(int socket_id) {
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (connected_sockets[i] == socket_id) {
-            return colors[i];
-        }
-    }
-    return NULL;
-}
-
 const char* get_color_by_username(char* username) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (!safe_strcmp(user_names[i], username)) {
