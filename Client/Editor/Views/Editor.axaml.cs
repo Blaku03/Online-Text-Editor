@@ -715,4 +715,15 @@ public partial class Editor : Window
         var dictionaryWindow = new Dictionary(MainEditor.Text, _highlighter, this);
         dictionaryWindow.Show();
     }
+
+    public void AddWordToDictionary(string word)
+    {
+        if (_highlighter == null) throw new Exception("Highlighter is null");
+        _highlighter.AddWordToDictionary(word);
+    }
+
+    public async Task<int> SendMessage(string message)
+    {
+        return await _socket.SendAsync(Encoding.ASCII.GetBytes(message));
+    }
 }

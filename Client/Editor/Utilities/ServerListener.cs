@@ -64,6 +64,7 @@ public static class ServerListener
                         editor.UpdateLockedUsers(deletes: true);
                         break;
                     case Views.Editor.ProtocolId.AddKnownWord:
+                        editor.AddWordToDictionary(metadataArray[1]);
                         break;
                 }
             }

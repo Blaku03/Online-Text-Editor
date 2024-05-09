@@ -487,7 +487,7 @@ void add_known_word(int sock, LinkedList* known_words, char* client_message) {
     // strip whitespace at the end
     char* end = client_message;
     while (!isspace(*end) && *end != '\0') {
-        client_message++;
+        end++;
     }
     *end = '\0';
 
