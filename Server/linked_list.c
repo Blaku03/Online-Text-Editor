@@ -122,9 +122,13 @@ int linked_list_insert_after_tail(LinkedList* list, Node* node) {
 }
 
 int linked_list_insert_after_node_number(LinkedList* list, int node_number, Node* node) {
-    if (list == NULL || node == NULL || node_number <= 0) {
+    if (list == NULL || node == NULL || node_number < 0) {
         return -1;
     }
+    if (node_number == 0) {
+        return linked_list_insert_before_head(list, node);
+    }
+    
     pthread_mutex_lock(&list->linked_list_mutex);
     node->next = NULL;
     node->previous = NULL;

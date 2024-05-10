@@ -17,6 +17,8 @@ typedef struct
 {
     int socket_desc;
     LinkedList* paragraphs;
+    LinkedList* known_words;
+    char* file_name;
 } connection_handler_args;
 
 typedef enum {
@@ -24,6 +26,7 @@ typedef enum {
     ASYNC_PROTOCOL_ADD_PARAGRAPH_ID,
     ASYNC_PROTOCOL_DELETE_PARAGRAPH_ID,
     UNLOCK_PARAGRAPH_PROTOCOL_ID,
+    ADD_KNOWN_WORD_PROTOCOL_ID,
 } ProtocolID;
 
 typedef struct sockaddr_in sockaddr_in;
@@ -57,5 +60,6 @@ void modify_socket_array(int search_for, int replace_with);
 int safe_strcmp(const char* s1, const char* s2);
 void modify_username_array(char* search_for, char* replace_with);
 int get_number_of_connected_clients();
+void add_known_word(int sock, LinkedList* known_words, char* client_message);
 
 #endif  // SERVER_CLIENT_HANDLER_H

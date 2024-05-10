@@ -14,14 +14,14 @@
 # in cmake-build
 #> cmake -B . -S ..
 #> make
-#> make test
+#> ctest
 
 cmake_minimum_required(VERSION 3.22)
 project(Server LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
 
-enable_testing()
+include(CTest)
 
 add_library(linked_list
         client_handler.c

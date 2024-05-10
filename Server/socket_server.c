@@ -2,13 +2,12 @@
 #include "linked_list.h"
 
 void start_server(void) {
-    LinkedList* paragraphs = (LinkedList*)malloc(sizeof(LinkedList));
-    if (paragraphs == NULL) {
-        fprintf(stderr, "Error: memory allocation failed\n");
-        return;
-    }
+    LinkedList paragraphs;
+    LinkedList known_words;
+    linked_list_init(&paragraphs);
+    linked_list_init(&known_words);
     pthread_mutex_init(&connected_sockets_mutex, NULL);
-    linked_list_init(paragraphs);
+    parse_file_to_linked_list(&paragraphs, FILE_NAME);
 
     for (int i = 0; i < MAX_CLIENTS; i++) {  // Initialize array of connected_sockets
         connected_sockets[i] = -1;
@@ -56,11 +55,14 @@ void start_server(void) {
 
         connection_handler_args* args = malloc(sizeof(connection_handler_args));
         args->socket_desc = connfd;
-        args->paragraphs = paragraphs;
+        args->file_name = FILE_NAME;
+        args->paragraphs = &paragraphs;
+        args->known_words = &known_words;
         pthread_create(&thread_id, NULL, connection_handler, args);
     }
 
-    linked_list_destroy(paragraphs);
+    linked_list_destroy(&paragraphs);
+    linked_list_destroy(&known_words);
 }
 
 int main(void) {
