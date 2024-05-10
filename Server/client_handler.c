@@ -1,5 +1,6 @@
 #include "client_handler.h"
 #include "linked_list.h"
+#include <ctype.h>
 
 int connected_sockets[MAX_CLIENTS];
 char* user_names[MAX_CLIENTS];
@@ -11,6 +12,7 @@ void* connection_handler(void* args) {
     connection_handler_args* actual_args = (connection_handler_args*)args;
     int sock = actual_args->socket_desc;
     LinkedList* paragraphs = actual_args->paragraphs;
+    LinkedList* known_words = actual_args->known_words;
 
     char client_message[CHUNK_SIZE];
 
@@ -18,30 +20,29 @@ void* connection_handler(void* args) {
     // for sending number of connected clients but it didn't work
     // when I put it into editor's constructor (if we have time, I can fix it)
 
-
     char* file_name = edit_custom_file ? CUSTOM_FILE : FILE_NAME;
     // send_file_to_client returns:
     // 0 if client wants default file
     // 1 if client wants custom file
     // -1 if sending file failed
-    switch(send_file_to_client(sock, file_name, paragraphs)){
-        // first client chose default file
-        case 0:
-            printf("Client has chosen default file\n");
-            edit_custom_file = 0;
-            break;
-        // first client chose custom file
-        case 1:
-            printf("Client has chosen custom file\n");
-            edit_custom_file = 1;
-            break;
-        // new client connected to opened file
-        case 3:
-            printf("New client connected to opened file\n");
-            break;
-        default:
-            fprintf(stderr, "Error: sending file failed\n");
-            break;
+    switch (send_file_to_client(sock, file_name, paragraphs)) {
+    // first client chose default file
+    case 0:
+        printf("Client has chosen default file\n");
+        edit_custom_file = 0;
+        break;
+    // first client chose custom file
+    case 1:
+        printf("Client has chosen custom file\n");
+        edit_custom_file = 1;
+        break;
+    // new client connected to opened file
+    case 3:
+        printf("New client connected to opened file\n");
+        break;
+    default:
+        fprintf(stderr, "Error: sending file failed\n");
+        break;
     }
 
     // sending information which paragraphs are locked when client connects
@@ -92,6 +93,9 @@ void* connection_handler(void* args) {
         case UNLOCK_PARAGRAPH_PROTOCOL_ID:
             update_paragraph_protocol(sock, paragraphs, client_message, UNLOCK_PARAGRAPH_PROTOCOL_ID);
             break;
+        case ADD_KNOWN_WORD_PROTOCOL_ID:
+            add_known_word(sock, known_words, client_message);
+            break;
         default:
             fprintf(stderr, "Error: protocol ID is wrong");
             break;
@@ -101,10 +105,11 @@ void* connection_handler(void* args) {
     }
 
     int unlocked_paragraph = unlock_paragraph_with_socket_id(paragraphs, sock);
-    if(unlocked_paragraph != -1){
+    if (unlocked_paragraph != -1) {
         char message[KILOBYTE];
         char dbg_message[KILOBYTE];
-        snprintf(message, sizeof(message), "%d,%d,%s",UNLOCK_PARAGRAPH_PROTOCOL_ID, unlocked_paragraph + 1, "");
+        snprintf(
+            message, sizeof(message), "%d,%d,%s", UNLOCK_PARAGRAPH_PROTOCOL_ID, unlocked_paragraph + 1, "");
         snprintf(
             dbg_message,
             sizeof(message),
@@ -127,12 +132,18 @@ void* connection_handler(void* args) {
 }
 
 int send_file_to_client(int sock, const char* file_name, LinkedList* Paragraphs) {
-    FILE *file = NULL;
+    FILE* file = NULL;
 
     // Send metadata to the client
     char metadata[KILOBYTE];
     int number_of_connected_clients = get_number_of_connected_clients();
-    snprintf(metadata, sizeof(metadata), "%d,%d,%d", get_file_size(file_name), CHUNK_SIZE, number_of_connected_clients);
+    snprintf(
+        metadata,
+        sizeof(metadata),
+        "%d,%d,%d",
+        get_file_size(file_name),
+        CHUNK_SIZE,
+        number_of_connected_clients);
     send(sock, metadata, sizeof(metadata), 0);
 
     // Waiting for confirmation from client
@@ -140,8 +151,8 @@ int send_file_to_client(int sock, const char* file_name, LinkedList* Paragraphs)
     recv(sock, client_response, sizeof(client_response), 0);
 
     // code for rest of clients
-    if(number_of_connected_clients!=0){
-        if(strcmp(client_response, "OK") == 0){
+    if (number_of_connected_clients != 0) {
+        if (strcmp(client_response, "OK") == 0) {
             char* chosen_filename = edit_custom_file ? CUSTOM_FILE : FILE_NAME;
             file = fopen(chosen_filename, "r");
             if (file == NULL) {
@@ -160,11 +171,10 @@ int send_file_to_client(int sock, const char* file_name, LinkedList* Paragraphs)
             fclose(file);
             return 3;
         }
-        else{
+        else {
             fprintf(stderr, "Error: client response not OK\n");
             return -1;
         }
-
     }
 
     // code for first client only
@@ -193,18 +203,23 @@ int send_file_to_client(int sock, const char* file_name, LinkedList* Paragraphs)
         return 0;
     }
     // if first client want custom file
-    else if(strcmp(client_response, "SEND_NEW_FILE") == 0){
+    else if (strcmp(client_response, "SEND_NEW_FILE") == 0) {
         printf("new file detected\n");
 
         // receiving metadata about custom file from client
         char buf[KILOBYTE];
         recv(sock, buf, sizeof(buf), 0);
         int file_size, chunk_size;
-        char *new_filename = NULL;
+        char* new_filename = NULL;
         if (sscanf(buf, "%d,%d,%s", &file_size, &chunk_size, new_filename) != 2) {
             fprintf(stderr, "Error: could not parse metadata\n");
-        } else {
-            printf("Received metadata: first_integer = %d, second_integer = %d, file_name = %s\n", file_size, chunk_size, new_filename);
+        }
+        else {
+            printf(
+                "Received metadata: first_integer = %d, second_integer = %d, file_name = %s\n",
+                file_size,
+                chunk_size,
+                new_filename);
         }
 
         // receiving file from client
@@ -227,8 +242,8 @@ int send_file_to_client(int sock, const char* file_name, LinkedList* Paragraphs)
         fclose(file);
 
         // parse file to linked list
-        parse_file_to_linked_list(Paragraphs,CUSTOM_FILE);
-        refresh_file(Paragraphs,CUSTOM_FILE);
+        parse_file_to_linked_list(Paragraphs, CUSTOM_FILE);
+        refresh_file(Paragraphs, CUSTOM_FILE);
 
         return 1;
     }
@@ -285,8 +300,10 @@ void update_paragraph_protocol(int sock, LinkedList* paragraphs, char* client_me
     fprintf(stderr, "SocketID: %d, ClientMessage: %s \n", sock, dbg_message);
     fflush(stdout);
 
-    if(edit_custom_file) refresh_file(paragraphs, CUSTOM_FILE);
-    else refresh_file(paragraphs, FILE_NAME);
+    if (edit_custom_file)
+        refresh_file(paragraphs, CUSTOM_FILE);
+    else
+        refresh_file(paragraphs, FILE_NAME);
 
     broadcast(message, sock, paragraphs);
 }
@@ -344,8 +361,10 @@ void async_protocol_delete_paragraph(int sock, LinkedList* paragraphs, char* cli
     fprintf(stderr, "SocketID: %d, ClientMessage: %s \n", sock, message);
     fflush(stdout);
 
-    if(edit_custom_file) refresh_file(paragraphs, CUSTOM_FILE);
-    else refresh_file(paragraphs, FILE_NAME);
+    if (edit_custom_file)
+        refresh_file(paragraphs, CUSTOM_FILE);
+    else
+        refresh_file(paragraphs, FILE_NAME);
     broadcast(message, sock, paragraphs);
 }
 
@@ -396,7 +415,7 @@ void broadcast(char* message, int sender, LinkedList* paragraphs) {
     }
 }
 
-int get_number_of_connected_clients(){
+int get_number_of_connected_clients() {
     int number_of_connected_clients = 0;
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (connected_sockets[i] != -1) {
@@ -463,7 +482,44 @@ const char* get_protocol_name(int protocol_id) {
         return "DELETE PARAGRAPH";
     case UNLOCK_PARAGRAPH_PROTOCOL_ID:
         return "UNLOCK PARAGRAPH";
+    case ADD_KNOWN_WORD_PROTOCOL_ID:
+        return "ADD KNOWN WORD";
     default:
         return "UNKNOWN PROTOCOL";
     }
+}
+
+void add_known_word(int sock, LinkedList* known_words, char* client_message) {
+    // strip whitespace at the start
+    while (isspace(*client_message) && *client_message != '\0') {
+        client_message++;
+    }
+
+    // strip whitespace at the end
+    char* end = client_message;
+    while (!isspace(*end) && *end != '\0') {
+        end++;
+    }
+    *end = '\0';
+
+    // return early if there aren't any non-whitespace characters in the word
+    if (client_message == end) {
+        return;
+    }
+
+    // return early if node creation fails
+    if (linked_list_insert_before_head(known_words, linked_list_create_node(client_message)) == -1) {
+        return;
+    }
+
+    // broadcast new word to other clients
+    char message[KILOBYTE];
+    int message_length =
+        snprintf(message, sizeof(message), "%d,%s,", ADD_KNOWN_WORD_PROTOCOL_ID, client_message);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (connected_sockets[i] != -1) {
+            send(connected_sockets[i], message, message_length, 0);
+        }
+    }
+    printf("%s\n", message);
 }

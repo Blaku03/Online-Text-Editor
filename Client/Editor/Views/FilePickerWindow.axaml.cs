@@ -1,23 +1,19 @@
-﻿using System;
-using Avalonia;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Editor.Views;
 
 public partial class FilePickerWindow : Window
 {
-    public  int PickedOption { get; private set; }
+    public int PickedOption { get; private set; }
     public string? PickedFilePath { get; private set; }
 
     public FilePickerWindow()
     {
         InitializeComponent();
     }
-    
-    
+
+
     private async void OpenFilePicker_OnClick(object? sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog();
@@ -27,6 +23,7 @@ public partial class FilePickerWindow : Window
             var filePath = result[0];
             PickedFilePath = filePath;
         }
+
         PickedOption = 1;
         Close();
     }
@@ -36,5 +33,4 @@ public partial class FilePickerWindow : Window
         PickedOption = 2;
         Close();
     }
-
 }

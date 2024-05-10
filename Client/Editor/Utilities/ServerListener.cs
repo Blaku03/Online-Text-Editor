@@ -63,6 +63,9 @@ public static class ServerListener
                         editor.LockParagraph(paragraphNumber + 1); //lock new paragraph
                         editor.UpdateLockedUsers(deletes: true);
                         break;
+                    case Views.Editor.ProtocolId.AddKnownWord:
+                        editor.AddWordToDictionary(metadataArray[1]);
+                        break;
                 }
             }
             catch (Exception e)

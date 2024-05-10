@@ -20,7 +20,7 @@ public partial class Dictionary : Window
         _editor = editor;
     }
 
-    private void AddWord(object? sender, RoutedEventArgs e)
+    private async void AddWord(object? sender, RoutedEventArgs e)
     {
         if (string.IsNullOrEmpty(WordToAdd.Text))
         {
@@ -28,6 +28,7 @@ public partial class Dictionary : Window
         }
 
         _dictionaryWordsHighlighter.AddWordToDictionary(WordToAdd.Text);
+        await _editor.SendMessage($"{(int)Editor.ProtocolId.AddKnownWord},{WordToAdd.Text}");
         WordToAdd.Text = string.Empty;
         _editor.Refresh();
     }

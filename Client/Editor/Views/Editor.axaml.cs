@@ -52,6 +52,7 @@ public partial class Editor : Window
         AsyncNewParagraph,
         AsyncDeleteParagraph,
         UnlockParagraph,
+        AddKnownWord
     }
 
     //flags for stopping thread's tasks
@@ -104,36 +105,37 @@ public partial class Editor : Window
             await _socket.SendAsync(Encoding.ASCII.GetBytes("Error getting metadata"));
             return;
         }
-        
+
         Show(); // we need to show editor first to pin dialog to it 
         if (numberOfConnectedClientsInt == 0) // if it's first client
-        {var filePickerWindow = new FilePickerWindow();
-             await filePickerWindow.ShowDialog(this);
-             switch (filePickerWindow.PickedOption)
-             {
-                 case 1:
-                     Console.WriteLine("Custom");
-                     Console.WriteLine(filePickerWindow.PickedFilePath);
-                     await _socket.SendAsync(Encoding.ASCII.GetBytes("SEND_NEW_FILE"));
-                     var contentOfFile = await SendFileWithMetadata(filePickerWindow.PickedFilePath!);
-                     Paragraphs = Paragraph.GenerateFromText(contentOfFile);
-                     OpenFileInEditor();
-                     break;
-                 case 2:
-                     Console.WriteLine("default");
-                     Console.WriteLine($"{chunkSize}, {fileSize}, {numberOfConnectedClientsInt}");
-                     await ReceiveDefaultFileFromServer(chunkSize, fileSize);
-                     break;
-             }
+        {
+            var filePickerWindow = new FilePickerWindow();
+            await filePickerWindow.ShowDialog(this);
+            switch (filePickerWindow.PickedOption)
+            {
+                case 1:
+                    Console.WriteLine("Custom");
+                    Console.WriteLine(filePickerWindow.PickedFilePath);
+                    await _socket.SendAsync(Encoding.ASCII.GetBytes("SEND_NEW_FILE"));
+                    var contentOfFile = await SendFileWithMetadata(filePickerWindow.PickedFilePath!);
+                    Paragraphs = Paragraph.GenerateFromText(contentOfFile);
+                    OpenFileInEditor();
+                    break;
+                case 2:
+                    Console.WriteLine("default");
+                    Console.WriteLine($"{chunkSize}, {fileSize}, {numberOfConnectedClientsInt}");
+                    await ReceiveDefaultFileFromServer(chunkSize, fileSize);
+                    break;
+            }
         }
         else // if it's not first client
         {
             await ReceiveDefaultFileFromServer(chunkSize, fileSize);
         }
 
-         // Initial lock protocol
-         // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
-         UpdateLockedUsers(true);
+        // Initial lock protocol
+        // server sends for instance 1,5,7 it means that I should lock paragraphs with these numbers
+        UpdateLockedUsers(true);
 
         // Here getting the dictionary string from the server
         // in this example it will be string array
@@ -175,7 +177,7 @@ public partial class Editor : Window
 
         serverListener.Start();
     }
-    
+
     // function which sends custom file to the server and returns content of this file
     private async Task<string> SendFileWithMetadata(string filePath)
     {
@@ -188,8 +190,8 @@ public partial class Editor : Window
 
         // Define the chunk size
         var chunkSize = 8192; // 8KB chunks
-        
-        var fileName =  Path.GetFileName(filePath);
+
+        var fileName = Path.GetFileName(filePath);
 
         // Create the metadata string
         var metadata = $"{fileSize},{chunkSize},{fileName}";
@@ -207,7 +209,7 @@ public partial class Editor : Window
             contentOfFile += Encoding.ASCII.GetString(buffer, 0, bytesRead);
             await _socket.SendAsync(new ArraySegment<byte>(buffer, 0, bytesRead));
         }
-        
+
         return contentOfFile;
     }
 
@@ -215,22 +217,22 @@ public partial class Editor : Window
     {
         await _socket.SendAsync(Encoding.ASCII.GetBytes("OK"));
         Console.WriteLine("test");
-         
-         var buffer = new byte[chunkSize];
-         StringBuilder fileContent = new();
 
-         // Receive the file
-         while (fileSize > 0)
-         {
-             var bytesRead = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer));
-             fileSize -= bytesRead;
-             fileContent.Append(Encoding.ASCII.GetString(buffer).Replace("\r\n", "\n"));
-             Console.WriteLine(fileContent);
-         }
+        var buffer = new byte[chunkSize];
+        StringBuilder fileContent = new();
 
-         Paragraphs = Paragraph.GenerateFromText(fileContent.ToString());
+        // Receive the file
+        while (fileSize > 0)
+        {
+            var bytesRead = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer));
+            fileSize -= bytesRead;
+            fileContent.Append(Encoding.ASCII.GetString(buffer).Replace("\r\n", "\n"));
+            Console.WriteLine(fileContent);
+        }
 
-         OpenFileInEditor();
+        Paragraphs = Paragraph.GenerateFromText(fileContent.ToString());
+
+        OpenFileInEditor();
     }
 
     public Paragraph? GetParagraph(int line)
@@ -713,5 +715,17 @@ public partial class Editor : Window
         if (_highlighter == null) throw new Exception("Highlighter is null");
         var dictionaryWindow = new Dictionary(MainEditor.Text, _highlighter, this);
         dictionaryWindow.Show();
+    }
+
+    public void AddWordToDictionary(string word)
+    {
+        if (_highlighter == null) throw new Exception("Highlighter is null");
+        _highlighter.AddWordToDictionary(word);
+        Refresh();
+    }
+
+    public async Task<int> SendMessage(string message)
+    {
+        return await _socket.SendAsync(Encoding.ASCII.GetBytes(message));
     }
 }
