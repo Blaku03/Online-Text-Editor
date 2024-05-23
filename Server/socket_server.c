@@ -20,7 +20,7 @@ void add_thread(pthread_t thread_id, int socket){
 void* activity_check_routine(void *arg){
     LinkedList* paragraphs = (LinkedList*)arg;
     for(;;){
-        sleep(TIMEOUT_SECONDS);
+        sleep(TIMEOUT_SECONDS/2);
         pthread_mutex_lock(&active_threads_mutex);
         for(int i = 0; i < MAX_CLIENTS; i++){
             if(active_threads[i].is_empty == 0){
@@ -28,7 +28,8 @@ void* activity_check_routine(void *arg){
                     int socket_id = active_threads[i].socket_id;
                     fprintf(stderr, "Client with socket id %d is inactive\n", socket_id);
                     char buffer[KILOBYTE];
-                    int unlocked_paragraph = get_number_of_paragraph_locked_by_given_socket(paragraphs, socket_id);
+                    int unlocked_paragraph = get_number_of_paragraph_locked_by_given_socket(paragraphs, socket_id) + 1;
+                    printf("unlocked paragraph number: %d", unlocked_paragraph);
                     snprintf( buffer, sizeof(buffer), "%d", unlocked_paragraph);
                     update_paragraph_protocol(socket_id, paragraphs, buffer, UNLOCK_PARAGRAPH_PROTOCOL_ID);
                     active_threads[i].is_checked = -1;
@@ -82,13 +83,9 @@ void start_server(void) {
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);  // INADDR_ANY: any local machine address
     serv_addr.sin_port = htons(PORT);               // htons: host to network short
 
-//    struct timeval timeout = {TIMEOUT_SECONDS, 0};
-//
-//    // Set the option for the socket
-//    if (setsockopt(listenfd, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout)) < 0) {
-//        fprintf(stderr, "Error: setsockopt failed\n");
-//        return;
-//    }
+    // setting socket option to reuse address - it eliminates problem with "bind failed"
+    const int one = 1;
+    setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &one, (socklen_t)sizeof(one));
 
     if (bind(listenfd, (sockaddr*)&serv_addr, sizeof(serv_addr)) <
         0) {  // bind the socket to the address and port number specified in addr
@@ -117,6 +114,8 @@ void start_server(void) {
         args->socket_desc = connfd;
         args->paragraphs = paragraphs;
         args->known_words = known_words;
+        // setting socket option to reuse address - it eliminates problem with "bind failed"
+        setsockopt(connfd ,SOL_SOCKET, SO_REUSEADDR, &one, (socklen_t)sizeof(one));
         pthread_create(&thread_id, NULL, connection_handler, args);
         add_thread(thread_id, connfd);
     }

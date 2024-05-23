@@ -360,8 +360,9 @@ int get_number_of_paragraph_locked_by_given_socket(LinkedList* list, int socket_
         Node* temp = list->head;
         while (temp != NULL) {
                 if (temp->socket_id == socket_id) {
-                counter++;
+                    break;
                 }
+                counter++;
                 temp = temp->next;
         }
         pthread_mutex_unlock(&list->linked_list_mutex);

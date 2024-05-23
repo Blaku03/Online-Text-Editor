@@ -45,7 +45,7 @@ typedef struct sockaddr sockaddr;
 #define MAX_CLIENTS                  10
 #define KILOBYTE                     10024
 #define CHUNK_SIZE                   KILOBYTE
-#define TIMEOUT_SECONDS              10
+#define TIMEOUT_SECONDS              15
 #define MAX_NUMBER_SKIPPED_CHECK_INS 3
 extern int connected_sockets[MAX_CLIENTS];
 extern thread_args active_threads[MAX_CLIENTS];

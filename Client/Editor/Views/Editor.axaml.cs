@@ -591,9 +591,10 @@ public partial class Editor : Window
     {
         var lockMessage = new byte[10024];
         _socket.Receive(lockMessage);
-        if (lockMessage[0] == '0') return;
         var lockMessageString = Encoding.ASCII.GetString(lockMessage);
+        Console.WriteLine(lockMessageString);
         var lockMessageArray = lockMessageString.Split(',');
+        if (lockMessageArray[0] == "0") return;
 
         if (deletes) DeleteLockedUsersWithoutMe();
 

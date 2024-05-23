@@ -26,8 +26,7 @@ enable_testing()
 add_library(linked_list
         client_handler.c
         linked_list.c
-        activity_check_handler.h
-        activity_check_handler.c)
+)
 target_compile_options(linked_list PRIVATE -Wall -Wextra)
 
 

@@ -10,7 +10,7 @@ public class Paragraph
     internal StringBuilder Content { get; set; } = new();
     public bool IsLocked { get; set; }
 
-    private const string LockedString = " (locked)";
+    private const string LockedString = "";
 
     public Guid Id { get; } = Guid.NewGuid();
 
