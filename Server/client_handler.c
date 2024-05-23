@@ -6,6 +6,18 @@ int connected_sockets[MAX_CLIENTS];
 char* user_names[MAX_CLIENTS];
 int edit_custom_file = 0;
 pthread_mutex_t connected_sockets_mutex;
+const char* colors[MAX_CLIENTS] = {
+    "#FFFF0000",  // Red
+    "#FF008000",  // Green
+    "#FF0000FF",  // Blue
+    "#FFFFFF00",  // Yellow
+    "#FFFF00FF",  // Magenta
+    "#FF00CED1",  // Dark Turquoise
+    "#FF800000",  // Maroon
+    "#FFFFA500",  // Orange
+    "#FF800080",  // Purple
+    "#FF2E8B57",  // Sea Green
+};
 
 void* connection_handler(void* args) {
     // casting args
@@ -61,6 +73,9 @@ void* connection_handler(void* args) {
 
     //    add_socket(sock);             //adding socket to connected_sockets array
     modify_socket_array(-1, sock);
+    char user_color[10];
+    snprintf(user_color, sizeof(user_color), "%s", colors[get_index_of_socket(sock)]);
+    send(sock, user_color, sizeof(user_color), 0);
 
     for (;;) {
         unsigned int read_size = recv(sock, client_message, CHUNK_SIZE, 0);
@@ -442,7 +457,8 @@ char* create_message_with_lock_status(LinkedList* paragraphs) {
 
     // Allocate memory for the message
     // Each number will be at most 10 characters long, plus one for the comma
-    char* message = malloc(total_space_to_allocate + 2);  // +2 for the "0" and the null terminator
+    char* message = malloc(
+        total_space_to_allocate + 2 + 10);  // +2 for the "0" and the null terminator and 10 for the color
     if (message == NULL) {
         fprintf(stderr, "Error: memory allocation failed\n");
         return NULL;
@@ -452,7 +468,12 @@ char* create_message_with_lock_status(LinkedList* paragraphs) {
     while (temp != NULL) {
         if (temp->locked == 1) {
             char mess_buffer[KILOBYTE];
-            sprintf(mess_buffer, "%d %s,", current_number_itr, temp->user_name);
+            sprintf(
+                mess_buffer,
+                "%d %s %s,",
+                current_number_itr,
+                temp->user_name,
+                colors[get_index_of_socket(temp->socket_id)]);
             strcat(message, mess_buffer);
         }
         temp = temp->next;
@@ -461,6 +482,15 @@ char* create_message_with_lock_status(LinkedList* paragraphs) {
 
     strcat(message, "0");  // Add a zero to indicate the end of the message
     return message;
+}
+
+int get_index_of_socket(int sock) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (connected_sockets[i] == sock) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 char* get_user_name_by_socket_id(int socket_id) {
