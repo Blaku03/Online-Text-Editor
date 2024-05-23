@@ -353,3 +353,18 @@ int unlock_paragraph_with_socket_id(LinkedList* list, int socket_id) {
     pthread_mutex_unlock(&list->linked_list_mutex);
     return -1;
 }
+
+int get_number_of_paragraph_locked_by_given_socket(LinkedList* list, int socket_id) {
+        pthread_mutex_lock(&list->linked_list_mutex);
+        int counter = 0;
+        Node* temp = list->head;
+        while (temp != NULL) {
+                if (temp->socket_id == socket_id) {
+                    break;
+                }
+                counter++;
+                temp = temp->next;
+        }
+        pthread_mutex_unlock(&list->linked_list_mutex);
+        return counter;
+}

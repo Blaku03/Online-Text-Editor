@@ -1,5 +1,48 @@
+#include <pthread.h>
+#include <signal.h>
 #include "client_handler.h"
 #include "linked_list.h"
+
+void add_thread(pthread_t thread_id, int socket){
+    pthread_mutex_lock(&active_threads_mutex);
+    for(int i = 0; i < MAX_CLIENTS; i++){
+        if(active_threads[i].is_empty == 1){
+            active_threads[i].is_empty = 0;
+            active_threads[i].thread_id = thread_id;
+            active_threads[i].socket_id = socket;
+            active_threads[i].is_checked = 1;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&active_threads_mutex);
+}
+
+void* activity_check_routine(void *arg){
+    LinkedList* paragraphs = (LinkedList*)arg;
+    for(;;){
+        sleep(TIMEOUT_SECONDS/2);
+        pthread_mutex_lock(&active_threads_mutex);
+        for(int i = 0; i < MAX_CLIENTS; i++){
+            if(active_threads[i].is_empty == 0){
+                if(active_threads[i].is_checked == 0){
+                    int socket_id = active_threads[i].socket_id;
+                    fprintf(stderr, "Client with socket id %d is inactive\n", socket_id);
+                    char buffer[KILOBYTE];
+                    int unlocked_paragraph = get_number_of_paragraph_locked_by_given_socket(paragraphs, socket_id) + 1;
+                    printf("unlocked paragraph number: %d", unlocked_paragraph);
+                    snprintf( buffer, sizeof(buffer), "%d", unlocked_paragraph);
+                    update_paragraph_protocol(socket_id, paragraphs, buffer, UNLOCK_PARAGRAPH_PROTOCOL_ID);
+                    active_threads[i].is_checked = -1;
+                }
+                else if(active_threads[i].is_checked == 1){
+                    active_threads[i].is_checked = 0;
+                }
+            }
+        }
+        pthread_mutex_unlock(&active_threads_mutex);
+        printf("Clients activity check...\n");
+    }
+}
 
 void start_server(void) {
     LinkedList* paragraphs = (LinkedList*)malloc(sizeof(LinkedList));
@@ -14,6 +57,13 @@ void start_server(void) {
 
     for (int i = 0; i < MAX_CLIENTS; i++) {  // Initialize array of connected_sockets
         connected_sockets[i] = -1;
+    }
+
+    for (int i = 0; i < MAX_CLIENTS; i++) {  // Initialize array of active_threads
+        active_threads[i].is_checked = -1;
+        active_threads[i].socket_id = -1;
+        active_threads[i].thread_id = -1;
+        active_threads[i].is_empty = 1;
     }
 
     int listenfd = 0, connfd = 0;  // listenfd: file descriptor for socket, connfd: file
@@ -33,6 +83,10 @@ void start_server(void) {
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);  // INADDR_ANY: any local machine address
     serv_addr.sin_port = htons(PORT);               // htons: host to network short
 
+    // setting socket option to reuse address - it eliminates problem with "bind failed"
+    const int one = 1;
+    setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &one, (socklen_t)sizeof(one));
+
     if (bind(listenfd, (sockaddr*)&serv_addr, sizeof(serv_addr)) <
         0) {  // bind the socket to the address and port number specified in addr
         fprintf(stderr, "Error: bind failed\n");
@@ -46,6 +100,9 @@ void start_server(void) {
 
     fprintf(stderr, "Server started\n");
 
+    // creating new thread for checking activity
+    pthread_create(&thread_id, NULL, activity_check_routine, paragraphs);
+
     for (;;) {
         if ((connfd = accept(listenfd, (sockaddr*)NULL, NULL)) < 0) {  // accept a new connection on a socket
             fprintf(stderr, "Error: accept failed\n");
@@ -57,11 +114,14 @@ void start_server(void) {
         args->socket_desc = connfd;
         args->paragraphs = paragraphs;
         args->known_words = known_words;
+        // setting socket option to reuse address - it eliminates problem with "bind failed"
+        setsockopt(connfd ,SOL_SOCKET, SO_REUSEADDR, &one, (socklen_t)sizeof(one));
         pthread_create(&thread_id, NULL, connection_handler, args);
+        add_thread(thread_id, connfd);
     }
-
     linked_list_destroy(paragraphs);
 }
+
 
 int main(void) {
     start_server();

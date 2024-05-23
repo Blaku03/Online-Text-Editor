@@ -5,7 +5,7 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
         x:Class="Editor.Views.MainMenu"
-        Title="MainMenu">
+        Title="Online Text Editor">
     <Window.Styles>
         <Style Selector="TextBox, Button">
             <Setter Property="Margin" Value="5"/>

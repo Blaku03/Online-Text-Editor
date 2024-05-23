@@ -13,12 +13,13 @@
 #include "linked_list.h"
 
 // struct for passing as one argument to the connection handler
-typedef struct
-{
-    int socket_desc;
-    LinkedList* known_words;
-    LinkedList* paragraphs;
-} connection_handler_args;
+
+typedef struct{
+    pthread_t thread_id;
+    int is_checked;
+    int socket_id;
+    int is_empty;
+}thread_args;
 
 typedef enum {
     SYNC_PROTOCOL_ID = 1,
@@ -27,6 +28,13 @@ typedef enum {
     UNLOCK_PARAGRAPH_PROTOCOL_ID,
     ADD_KNOWN_WORD_PROTOCOL_ID,
 } ProtocolID;
+
+typedef struct
+{
+    int socket_desc;
+    LinkedList* known_words;
+    LinkedList* paragraphs;
+} connection_handler_args;
 
 typedef struct sockaddr_in sockaddr_in;
 typedef struct sockaddr sockaddr;
@@ -37,11 +45,14 @@ typedef struct sockaddr sockaddr;
 #define MAX_CLIENTS                  10
 #define KILOBYTE                     10024
 #define CHUNK_SIZE                   KILOBYTE
+#define TIMEOUT_SECONDS              15
 #define MAX_NUMBER_SKIPPED_CHECK_INS 3
 extern int connected_sockets[MAX_CLIENTS];
+extern thread_args active_threads[MAX_CLIENTS];
 extern int edit_custom_file;
 extern char* user_names[MAX_CLIENTS];
 extern pthread_mutex_t connected_sockets_mutex;
+extern pthread_mutex_t active_threads_mutex;
 
 void* connection_handler(void* socket_desc);
 int send_file_to_client(int sock, const char* file_name, LinkedList* Paragraphs);
@@ -61,5 +72,9 @@ int get_index_of_socket(int sock);
 void modify_username_array(char* search_for, char* replace_with);
 int get_number_of_connected_clients();
 void add_known_word(int sock, LinkedList* known_words, char* client_message);
+int timeout_recv( int socket, char *buffer, int length, int flags, int tmo_millisec );
+void confirm_receiving(int sock);
+void remove_thread(pthread_t thread_id);
+int get_number_of_active_client_threads();
 
 #endif  // SERVER_CLIENT_HANDLER_H

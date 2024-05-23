@@ -6,6 +6,10 @@
     <Application.Styles>
         <FluentTheme />
         <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+        <Style Selector="Window">
+            <Setter Property="Background" Value="#101417"/>
+            <Setter Property="Icon" Value="/Assets/avalonia-logo.ico"/>
+        </Style>
     </Application.Styles>
 
 </Application>

@@ -53,7 +53,7 @@ public partial class Editor : Window
         AsyncNewParagraph,
         AsyncDeleteParagraph,
         UnlockParagraph,
-        AddKnownWord
+        AddKnownWord,
     }
 
     //flags for stopping thread's tasks
@@ -260,7 +260,7 @@ public partial class Editor : Window
     }
 
 
-    private async Task DisconnectFromServer()
+    public async Task DisconnectFromServer()
     {
         try
         {
@@ -591,9 +591,10 @@ public partial class Editor : Window
     {
         var lockMessage = new byte[10024];
         _socket.Receive(lockMessage);
-        if (lockMessage[0] == '0') return;
         var lockMessageString = Encoding.ASCII.GetString(lockMessage);
+        Console.WriteLine(lockMessageString);
         var lockMessageArray = lockMessageString.Split(',');
+        if (lockMessageArray[0] == "0") return;
 
         if (deletes) DeleteLockedUsersWithoutMe();
 

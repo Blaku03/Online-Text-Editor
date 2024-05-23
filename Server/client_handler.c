@@ -1,19 +1,24 @@
 #include "client_handler.h"
 #include "linked_list.h"
 #include <ctype.h>
+#include <asm-generic/errno.h>
+#include <errno.h>
+#include <pthread.h>
 
 int connected_sockets[MAX_CLIENTS];
+thread_args active_threads[MAX_CLIENTS];
 char* user_names[MAX_CLIENTS];
 int edit_custom_file = 0;
 pthread_mutex_t connected_sockets_mutex;
+pthread_mutex_t active_threads_mutex;
 const char* colors[MAX_CLIENTS] = {
-    "#FFFF0000",  // Red
-    "#FF008000",  // Green
-    "#FF0000FF",  // Blue
     "#FFFFFF00",  // Yellow
+    "#FF800000",  // Maroon
+    "#FF0000FF",  // Blue
+    "#FF008000",  // Green
+    "#FFFF0000",  // Red
     "#FFFF00FF",  // Magenta
     "#FF00CED1",  // Dark Turquoise
-    "#FF800000",  // Maroon
     "#FFFFA500",  // Orange
     "#FF800080",  // Purple
     "#FF2E8B57",  // Sea Green
@@ -79,6 +84,8 @@ void* connection_handler(void* args) {
 
     for (;;) {
         unsigned int read_size = recv(sock, client_message, CHUNK_SIZE, 0);
+        //        unsigned int read_size = timeout_recv(sock, client_message, CHUNK_SIZE, 0, TIMEOUT_SECONDS);
+
         client_message[read_size] = '\0';
 
         // when client disconnects
@@ -117,6 +124,7 @@ void* connection_handler(void* args) {
         }
         /* Clear the message buffer */
         memset(client_message, 0, CHUNK_SIZE);
+        confirm_receiving(sock);
     }
 
     int unlocked_paragraph = unlock_paragraph_with_socket_id(paragraphs, sock);
@@ -143,7 +151,28 @@ void* connection_handler(void* args) {
     modify_socket_array(sock, -1);
     modify_username_array(get_user_name_by_socket_id(sock), NULL);
     close(sock);
+    remove_thread(pthread_self());
     pthread_exit(NULL);
+}
+
+int timeout_recv( int socket, char *buffer, int length, int flags, int tmo_millisec ){
+    struct timeval tv = {0};
+    tv.tv_sec = tmo_millisec / 1000 ;
+    tv.tv_usec = (tmo_millisec % 1000) * 1000;
+    setsockopt( socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv) ) ;
+
+    int count = recv( socket, buffer, length, flags );
+    if( count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+    {
+        count = 0;
+    }
+
+    // Restore default blocking
+    tv.tv_sec = 0 ;
+    tv.tv_usec = 0;
+    setsockopt( socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv) ) ;
+
+    return count ;
 }
 
 int send_file_to_client(int sock, const char* file_name, LinkedList* Paragraphs) {
@@ -424,6 +453,7 @@ void broadcast(char* message, int sender, LinkedList* paragraphs) {
             send(connected_sockets[i], message, strlen(message), 0);
             usleep(1000);
             char* lock_status_message = create_message_with_lock_status(paragraphs);
+            printf("%s\n", lock_status_message);
             send(connected_sockets[i], lock_status_message, strlen(lock_status_message), 0);
             free(lock_status_message);
         }
@@ -438,6 +468,16 @@ int get_number_of_connected_clients() {
         }
     }
     return number_of_connected_clients;
+}
+
+int get_number_of_active_client_threads(){
+    int number_of_active_client_threads = 0;
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (active_threads[i].is_empty == 0) {
+            number_of_active_client_threads++;
+        }
+    }
+    return number_of_active_client_threads;
 }
 
 char* create_message_with_lock_status(LinkedList* paragraphs) {
@@ -552,4 +592,29 @@ void add_known_word(int sock, LinkedList* known_words, char* client_message) {
         }
     }
     printf("%s\n", message);
+}
+
+void confirm_receiving(int sock) {
+    pthread_mutex_lock(&active_threads_mutex);
+    for(int i = 0; i<MAX_CLIENTS; i++){
+        if(active_threads[i].socket_id == sock){
+            active_threads[i].is_checked = 1;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&active_threads_mutex);
+}
+
+void remove_thread(pthread_t thread_id){
+    pthread_mutex_lock(&active_threads_mutex);
+    for(int i = 0; i < MAX_CLIENTS; i++){
+        if(active_threads[i].thread_id == thread_id){
+            active_threads[i].is_empty = 1;
+            active_threads[i].thread_id = -1;
+            active_threads[i].socket_id = -1;
+            active_threads[i].is_checked = -1;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&active_threads_mutex);
 }
