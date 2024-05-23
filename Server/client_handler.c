@@ -11,6 +11,18 @@ char* user_names[MAX_CLIENTS];
 int edit_custom_file = 0;
 pthread_mutex_t connected_sockets_mutex;
 pthread_mutex_t active_threads_mutex;
+const char* colors[MAX_CLIENTS] = {
+    "#FFFF0000",  // Red
+    "#FF008000",  // Green
+    "#FF0000FF",  // Blue
+    "#FFFFFF00",  // Yellow
+    "#FFFF00FF",  // Magenta
+    "#FF00CED1",  // Dark Turquoise
+    "#FF800000",  // Maroon
+    "#FFFFA500",  // Orange
+    "#FF800080",  // Purple
+    "#FF2E8B57",  // Sea Green
+};
 
 void* connection_handler(void* args) {
     // casting args
@@ -66,6 +78,9 @@ void* connection_handler(void* args) {
 
     //    add_socket(sock);             //adding socket to connected_sockets array
     modify_socket_array(-1, sock);
+    char user_color[10];
+    snprintf(user_color, sizeof(user_color), "%s", colors[get_index_of_socket(sock)]);
+    send(sock, user_color, sizeof(user_color), 0);
 
     for (;;) {
         unsigned int read_size = recv(sock, client_message, CHUNK_SIZE, 0);
@@ -454,16 +469,6 @@ int get_number_of_connected_clients() {
     return number_of_connected_clients;
 }
 
-int get_number_of_active_client_threads(){
-    int number_of_active_client_threads = 0;
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-            if (active_threads[i].is_empty == 0) {
-            number_of_active_client_threads++;
-            }
-    }
-    return number_of_active_client_threads;
-}
-
 char* create_message_with_lock_status(LinkedList* paragraphs) {
     Node* temp = paragraphs->head;
     int current_number_itr = 1;
@@ -561,29 +566,4 @@ void add_known_word(int sock, LinkedList* known_words, char* client_message) {
         }
     }
     printf("%s\n", message);
-}
-
-void confirm_receiving(int sock) {
-    pthread_mutex_lock(&active_threads_mutex);
-    for(int i = 0; i<MAX_CLIENTS; i++){
-        if(active_threads[i].socket_id == sock){
-            active_threads[i].is_checked = 1;
-            break;
-        }
-    }
-    pthread_mutex_unlock(&active_threads_mutex);
-}
-
-void remove_thread(pthread_t thread_id){
-    pthread_mutex_lock(&active_threads_mutex);
-    for(int i = 0; i < MAX_CLIENTS; i++){
-        if(active_threads[i].thread_id == thread_id){
-            active_threads[i].is_empty = 1;
-            active_threads[i].thread_id = -1;
-            active_threads[i].socket_id = -1;
-            active_threads[i].is_checked = -1;
-            break;
-        }
-    }
-    pthread_mutex_unlock(&active_threads_mutex);
 }

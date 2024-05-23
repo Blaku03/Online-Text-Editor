@@ -28,6 +28,7 @@ public partial class Editor : Window
     private readonly Socket _socket;
     private readonly string _userName;
     private int _longestUsername = 0;
+    private Color _currentColor;
     private LinkedList<Paragraph>? Paragraphs { get; set; }
     private readonly DictionaryWordsHighlighter? _highlighter;
 
@@ -74,7 +75,7 @@ public partial class Editor : Window
         MainEditor.TextArea.AddHandler(InputElement.PointerPressedEvent, TextArea_PointerPressed,
             RoutingStrategies.Tunnel);
         MainEditor.TextArea.AddHandler(InputElement.PointerReleasedEvent,
-            (_, _) => { SetLockUserLine(_userName, CaretLine); },
+            (_, _) => { SetLockUserLine(_userName, CaretLine, _currentColor); },
             RoutingStrategies.Tunnel);
 
         // Disable selection of text
@@ -83,6 +84,23 @@ public partial class Editor : Window
             RoutingStrategies.Tunnel);
     }
 
+    private async void GetColorFromServer()
+    {
+        try
+        {
+            var colorMessage = new byte[9];
+            await _socket.ReceiveAsync(colorMessage);
+
+            var colorHex = Encoding.ASCII.GetString(colorMessage);
+
+            var color = Color.Parse(colorHex);
+            _currentColor = color;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error receiving color from server: {ex.Message}");
+        }
+    }
 
     private async void GetFileFromServer()
     {
@@ -143,8 +161,9 @@ public partial class Editor : Window
         _highlighter!.AddArrayToDictionary(dictionaryArray);
 
         await _socket.SendAsync(Encoding.ASCII.GetBytes(_userName));
+        GetColorFromServer();
 
-        AddLockUser(_userName, Brushes.Red);
+        AddLockUser(_userName, _currentColor);
         _longestUsername = Math.Max(_longestUsername, _userName.Length);
 
         // starting thread for sync sending paragraphs to the server
@@ -457,7 +476,7 @@ public partial class Editor : Window
         if (IsSafeKey(e.Key)) return;
         if (e.Key is Key.Up or Key.Down or Key.Enter or Key.Back)
         {
-            SetLockUserLine(_userName, CaretLine);
+            SetLockUserLine(_userName, CaretLine, _currentColor);
             return;
         }
 
@@ -499,7 +518,7 @@ public partial class Editor : Window
         Paragraphs!.ElementAt(paragraphNumber - 1).IsLocked = false;
     }
 
-    private void SetLockUserLine(string userName, int rowNumber)
+    private void SetLockUserLine(string userName, int rowNumber, Color colorToSet)
     {
         _longestUsername = Math.Max(_longestUsername, userName.Length);
         // Find the Grid for the user
@@ -517,7 +536,7 @@ public partial class Editor : Window
                 }
             }
 
-            userGrid ??= AddLockUser(userName, Brushes.Red);
+            userGrid ??= AddLockUser(userName, colorToSet);
 
             // Calculate the new position
             var lineHeight = MainEditor.TextArea.TextView.DefaultLineHeight;
@@ -583,39 +602,40 @@ public partial class Editor : Window
             var splitLine = j.Split(' ');
             var lineNumber = int.Parse(splitLine[0]);
             if (lineNumber == 0) break;
-            SetLockUserLine(splitLine[1], lineNumber);
+            SetLockUserLine(splitLine[1], lineNumber, Color.Parse(splitLine[2]));
             if (lockingLines) LockParagraph(lineNumber);
         }
     }
 
-    private Grid AddLockUser(string userName, ISolidColorBrush color)
+    private Grid AddLockUser(string userName, Color userColor)
     {
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
+        ISolidColorBrush userColorBrush = new SolidColorBrush(userColor);
+
         var textBlock = new TextBlock
         {
             Text = userName,
             FontFamily = new FontFamily("Cascadia Code,Consolas,Menlo,Monospace"),
-            Foreground = Brushes.RoyalBlue,
+            Foreground = userColorBrush,
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
         };
         Grid.SetColumn(textBlock, 0);
-
-        var ellipse = new Ellipse
+        var lockSymbol = new TextBlock
         {
-            Width = 15,
-            Height = 15,
-            Fill = color,
+            Text = "🔒",
+            FontSize = 15,
+            Foreground = userColorBrush,
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
         };
-        Grid.SetColumn(ellipse, 1);
+        Grid.SetColumn(lockSymbol, 1);
 
         grid.Children.Add(textBlock);
-        grid.Children.Add(ellipse);
+        grid.Children.Add(lockSymbol);
 
         LockIndicatorsPanel.Children.Add(grid);
         return grid;

@@ -68,6 +68,7 @@ char* get_user_name_by_socket_id(int socket_id);
 void modify_socket_array(int search_for, int replace_with);
 // Because normal strcmp crashes if one of the strings is NULL
 int safe_strcmp(const char* s1, const char* s2);
+int get_index_of_socket(int sock);
 void modify_username_array(char* search_for, char* replace_with);
 int get_number_of_connected_clients();
 void add_known_word(int sock, LinkedList* known_words, char* client_message);
