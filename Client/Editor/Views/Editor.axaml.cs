@@ -52,7 +52,8 @@ public partial class Editor : Window
         AsyncNewParagraph,
         AsyncDeleteParagraph,
         UnlockParagraph,
-        AddKnownWord
+        AddKnownWord,
+        UnlockParagraphWithInactiveUser
     }
 
     //flags for stopping thread's tasks
@@ -241,7 +242,7 @@ public partial class Editor : Window
     }
 
 
-    private async Task DisconnectFromServer()
+    public async Task DisconnectFromServer()
     {
         try
         {

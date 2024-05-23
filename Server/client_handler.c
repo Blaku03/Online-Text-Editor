@@ -1,11 +1,16 @@
 #include "client_handler.h"
 #include "linked_list.h"
 #include <ctype.h>
+#include <asm-generic/errno.h>
+#include <errno.h>
+#include <pthread.h>
 
 int connected_sockets[MAX_CLIENTS];
+thread_args active_threads[MAX_CLIENTS];
 char* user_names[MAX_CLIENTS];
 int edit_custom_file = 0;
 pthread_mutex_t connected_sockets_mutex;
+pthread_mutex_t active_threads_mutex;
 
 void* connection_handler(void* args) {
     // casting args
@@ -64,6 +69,8 @@ void* connection_handler(void* args) {
 
     for (;;) {
         unsigned int read_size = recv(sock, client_message, CHUNK_SIZE, 0);
+//        unsigned int read_size = timeout_recv(sock, client_message, CHUNK_SIZE, 0, TIMEOUT_SECONDS);
+
         client_message[read_size] = '\0';
 
         // when client disconnects
@@ -102,6 +109,7 @@ void* connection_handler(void* args) {
         }
         /* Clear the message buffer */
         memset(client_message, 0, CHUNK_SIZE);
+        confirm_receiving(sock);
     }
 
     int unlocked_paragraph = unlock_paragraph_with_socket_id(paragraphs, sock);
@@ -128,7 +136,28 @@ void* connection_handler(void* args) {
     modify_socket_array(sock, -1);
     modify_username_array(get_user_name_by_socket_id(sock), NULL);
     close(sock);
+    remove_thread(pthread_self());
     pthread_exit(NULL);
+}
+
+int timeout_recv( int socket, char *buffer, int length, int flags, int tmo_millisec ){
+    struct timeval tv = {0};
+    tv.tv_sec = tmo_millisec / 1000 ;
+    tv.tv_usec = (tmo_millisec % 1000) * 1000;
+    setsockopt( socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv) ) ;
+
+    int count = recv( socket, buffer, length, flags );
+    if( count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+    {
+        count = 0;
+    }
+
+    // Restore default blocking
+    tv.tv_sec = 0 ;
+    tv.tv_usec = 0;
+    setsockopt( socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv) ) ;
+
+    return count ;
 }
 
 int send_file_to_client(int sock, const char* file_name, LinkedList* Paragraphs) {
@@ -522,4 +551,29 @@ void add_known_word(int sock, LinkedList* known_words, char* client_message) {
         }
     }
     printf("%s\n", message);
+}
+
+void confirm_receiving(int sock) {
+    pthread_mutex_lock(&active_threads_mutex);
+    for(int i = 0; i<MAX_CLIENTS; i++){
+        if(active_threads[i].socket_id == sock){
+            active_threads[i].is_checked = 1;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&active_threads_mutex);
+}
+
+void remove_thread(pthread_t thread_id){
+    pthread_mutex_lock(&active_threads_mutex);
+    for(int i = 0; i < MAX_CLIENTS; i++){
+        if(active_threads[i].thread_id == thread_id){
+            active_threads[i].is_empty = 1;
+            active_threads[i].thread_id = -1;
+            active_threads[i].socket_id = -1;
+            active_threads[i].is_checked = -1;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&active_threads_mutex);
 }
