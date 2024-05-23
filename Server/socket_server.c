@@ -25,13 +25,13 @@ void* activity_check_routine(void *arg){
         for(int i = 0; i < MAX_CLIENTS; i++){
             if(active_threads[i].is_empty == 0){
                 if(active_threads[i].is_checked == 0){
-                    fprintf(stderr, "Client with socket id %d is inactive\n", active_threads[i].socket_id);
-                    update_paragraph_protocol(active_threads[i].socket_id, paragraphs, "message", UNLOCK_PARAGRAPH_PROTOCOL_ID);
-                    connected_sockets[i] = -1;
+                    int socket_id = active_threads[i].socket_id;
+                    fprintf(stderr, "Client with socket id %d is inactive\n", socket_id);
+                    char buffer[KILOBYTE];
+                    int unlocked_paragraph = get_number_of_paragraph_locked_by_given_socket(paragraphs, socket_id);
+                    snprintf( buffer, sizeof(buffer), "%d", unlocked_paragraph);
+                    update_paragraph_protocol(socket_id, paragraphs, buffer, UNLOCK_PARAGRAPH_PROTOCOL_ID);
                     active_threads[i].is_checked = -1;
-                    active_threads[i].socket_id = -1;
-                    active_threads[i].thread_id = -1;
-                    active_threads[i].is_empty = 1;
                 }
                 else if(active_threads[i].is_checked == 1){
                     active_threads[i].is_checked = 0;
@@ -39,7 +39,7 @@ void* activity_check_routine(void *arg){
             }
         }
         pthread_mutex_unlock(&active_threads_mutex);
-        printf("test\n");
+        printf("Clients activity check...\n");
     }
 }
 

@@ -454,6 +454,16 @@ int get_number_of_connected_clients() {
     return number_of_connected_clients;
 }
 
+int get_number_of_active_client_threads(){
+    int number_of_active_client_threads = 0;
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+            if (active_threads[i].is_empty == 0) {
+            number_of_active_client_threads++;
+            }
+    }
+    return number_of_active_client_threads;
+}
+
 char* create_message_with_lock_status(LinkedList* paragraphs) {
     Node* temp = paragraphs->head;
     int current_number_itr = 1;

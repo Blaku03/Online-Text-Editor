@@ -66,12 +66,6 @@ public static class ServerListener
                     case Views.Editor.ProtocolId.AddKnownWord:
                         editor.AddWordToDictionary(metadataArray[1]);
                         break;
-                    case Views.Editor.ProtocolId.UnlockParagraphWithInactiveUser:
-                        paragraphNumber = int.Parse(metadataArray[1]);
-                        Console.WriteLine($"Received unlock paragraph {paragraphNumber}");
-                        editor.UnlockParagraph(paragraphNumber);
-                        editor.UpdateLockedUsers(deletes: true);
-                        break;
                 }
             }
             catch (Exception e)

@@ -74,5 +74,6 @@ void add_known_word(int sock, LinkedList* known_words, char* client_message);
 int timeout_recv( int socket, char *buffer, int length, int flags, int tmo_millisec );
 void confirm_receiving(int sock);
 void remove_thread(pthread_t thread_id);
+int get_number_of_active_client_threads();
 
 #endif  // SERVER_CLIENT_HANDLER_H

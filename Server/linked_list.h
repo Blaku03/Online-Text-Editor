@@ -50,5 +50,6 @@ void parse_file_to_linked_list(LinkedList* list, const char* file_name);
 char* get_content_of_paragraph(LinkedList* list, int paragraph_number);
 // Return number of unlocked paragraph, otherwise return -1.
 int unlock_paragraph_with_socket_id(LinkedList* list, int socket_id);
+int get_number_of_paragraph_locked_by_given_socket(LinkedList* list, int socket_id);
 
 #endif  // SERVER_LINKED_LIST_H
