@@ -32,16 +32,17 @@ public static class SyncParagraphSending
 
             if (!currentParagraph.IsLocked)
             {
-                if (!LastSentParagraphs[currentParagraph.Id]!.Equals(content))
-                {
+                // if (!LastSentParagraphs[currentParagraph.Id]!.Equals(content))
+                // {
                     var modifiedContent = content! + "\n";
+                    // Console.WriteLine(modifiedContent);
                     var data =
                         $"{(int)Views.Editor.ProtocolId.SyncParagraph},{currentParagraphNumber},{modifiedContent}";
                     await socketToListen.SendAsync(Encoding.ASCII.GetBytes(data));
                     LastSentParagraphs[currentParagraph.Id] = content;
-                }
+                // }
             }
-            await Task.Delay(500, cancellationToken);
+            await Task.Delay(200, cancellationToken);
         }
     }
 }

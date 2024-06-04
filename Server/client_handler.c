@@ -314,11 +314,13 @@ void update_paragraph_protocol(int sock, LinkedList* paragraphs, char* client_me
     switch (protocol_id) {
     case SYNC_PROTOCOL_ID:
         lock_paragraph(paragraphs, paragraph_number, sock, get_user_name_by_socket_id(sock));
-        paragraph_content = edit_content_of_paragraph(paragraphs, paragraph_number, client_message);
+//        paragraph_content = edit_content_of_paragraph(paragraphs, paragraph_number, client_message);
+        paragraph_content = get_content_of_paragraph(paragraphs, paragraph_number);
         break;
     case UNLOCK_PARAGRAPH_PROTOCOL_ID:
         unlock_paragraph(paragraphs, paragraph_number, sock);
-        paragraph_content = get_content_of_paragraph(paragraphs, paragraph_number);
+        paragraph_content = edit_content_of_paragraph(paragraphs, paragraph_number, client_message);
+//        paragraph_content = get_content_of_paragraph(paragraphs, paragraph_number);
         break;
     case ASYNC_PROTOCOL_ADD_PARAGRAPH_ID:
         unlock_paragraph(paragraphs, paragraph_number, sock);

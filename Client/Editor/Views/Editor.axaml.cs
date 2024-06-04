@@ -307,7 +307,12 @@ public partial class Editor : Window
     private void TextArea_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         //protocol for unlocking paragraph when line is switched by mouse
-        var data = $"{(int)ProtocolId.UnlockParagraph},{CaretLine}";
+        // var data = $"{(int)ProtocolId.UnlockParagraph},{CaretLine}";
+        // var buffer = Encoding.ASCII.GetBytes(data);
+        // _socket.Send(buffer);
+        var caretParagraph = Paragraphs!.ElementAt(CaretLine - 1);
+        
+        var data = $"{(int)ProtocolId.UnlockParagraph},{CaretLine},{caretParagraph.Content}\n";
         var buffer = Encoding.ASCII.GetBytes(data);
         _socket.Send(buffer);
     }
@@ -336,10 +341,23 @@ public partial class Editor : Window
                 e.Handled = true;
                 return;
             }
+            
+            // paragraph after line changing to compare it to previous line
+            var nextCaretParagraph = Paragraphs.ElementAt(MainEditor.TextArea.Caret.Line - 1);
 
-            var data = $"{(int)ProtocolId.UnlockParagraph},{CaretLine},{caretParagraph.Content}\n";
-            var buffer = Encoding.ASCII.GetBytes(data);
-            _socket.Send(buffer);
+
+            Console.WriteLine($"NEXT: {nextCaretParagraph.Id.ToString()}");
+            Console.WriteLine($"CURRENT: {caretParagraph.Id.ToString()}");
+            
+            if (!nextCaretParagraph.Id.ToString().Equals(caretParagraph.Id.ToString())) // if lines aren't changed within the same paragraph
+            {
+                Console.WriteLine("LINE has changed");
+                var data = $"{(int)ProtocolId.UnlockParagraph},{CaretLine},{caretParagraph.Content}\n";
+                Console.WriteLine(caretParagraph.Content);
+                Console.WriteLine(data);
+                var buffer = Encoding.ASCII.GetBytes(data);
+                _socket.Send(buffer);
+            }
             return;
         }
 
